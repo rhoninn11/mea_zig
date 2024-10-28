@@ -1,4 +1,5 @@
 const std = @import("std");
+const zigimg = @import("zigimg");
 
 // Stałe określające rozmiar obrazu i siatki
 const SIZE = 128;
@@ -10,7 +11,7 @@ const GRID2_COLOR = 150; // ciemniejszy szary
 
 const BMPFileHeader = packed struct {
     signature: u16 = 0x4D42, // 'BM' w little endian
-    size: u32,
+    file_size: u32,
     reserved1: u16 = 0,
     reserved2: u16 = 0,
     pixel_offset: u32 = 54, // 14 + 40 (rozmiar obu nagłówków)
@@ -28,7 +29,16 @@ const BMPInfoHeader = packed struct {
     x_pixels_per_meter: i32 = 0,
     y_pixels_per_meter: i32 = 0,
     colors_used: u32 = 0,
-    important_colors: u32 = 0,
+    colors_important: u32 = 0,
+};
+
+const BMPColorHeader = packed struct {
+    mask_red: u32 = 0x00ff0000,
+    mask_grean: u32 = 0x00ff0000,
+    mask_blue: u32 = 0x00ff0000,
+    mask_alpha: u32 = 0x00ff0000,
+    color_space_type: u32 = 0x73524742,
+    unused: u32,
 };
 
 const drawDashedLine = struct {
@@ -68,7 +78,7 @@ pub fn save_to_file(pixels: []u8, name: []const u8, img_size: usize, row_size: u
     defer file.close();
 
     const file_header = BMPFileHeader{
-        .size = @truncate(54 + img_size),
+        .file_size = @truncate(54 + img_size),
     };
 
     const info_header = BMPInfoHeader{
@@ -88,6 +98,35 @@ pub fn save_to_file(pixels: []u8, name: []const u8, img_size: usize, row_size: u
     }
 }
 
+fn simple_memory_scribes(my_alloc: std.mem.Allocator) !void {
+    const buffer_1 = try my_alloc.alloc(u8, 128);
+    defer my_alloc.free(buffer_1);
+    const buffer_2 = try my_alloc.alloc(u8, 128);
+    defer my_alloc.free(buffer_2);
+
+    @memset(buffer_1, 0xff);
+    @memset(buffer_2, 0x00);
+
+    std.debug.print("+++ buffer value before copy - {}\n", .{buffer_2[0]});
+    @memcpy(buffer_2, buffer_1);
+    std.debug.print("+++ buffer value after copy - {}\n", .{buffer_2[0]});
+}
+
+fn checker_draw(pixels_to_draw: []u8) void {
+    var i: usize = 0;
+    while (i < SIZE) : (i += GRID1_SPACING) {
+        drawDashedLine.horizontal(pixels_to_draw, i, GRID1_COLOR);
+        drawDashedLine.vertical(pixels_to_draw, i, GRID1_COLOR);
+    }
+
+    // Rysuj drugą siatkę (ciemniejszą)
+    i = 0;
+    while (i < SIZE) : (i += GRID2_SPACING) {
+        drawDashedLine.horizontal(pixels_to_draw, i, GRID2_COLOR);
+        drawDashedLine.vertical(pixels_to_draw, i, GRID2_COLOR);
+    }
+}
+
 pub fn main() !void {
     // Alokator dla naszego programu
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -95,29 +134,25 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Bufor na piksele (RGB dla każdego piksela)
-    const pixels = try allocator.alloc(u8, SIZE * SIZE * 3);
+    const pixels = try allocator.alloc(u8, SIZE * SIZE * CH_NUM);
     defer allocator.free(pixels);
 
     const row_size = ((SIZE * 3 + 3) / 4) * 4;
     const img_size = row_size * SIZE;
 
-    // Wypełnij tło na biało
     @memset(pixels, 255);
+    checker_draw(pixels);
 
-    // Rysuj pierwszą siatkę (jaśniejszą)
-    var i: usize = 0;
-    while (i < SIZE) : (i += GRID1_SPACING) {
-        drawDashedLine.horizontal(pixels, i, GRID1_COLOR);
-        drawDashedLine.vertical(pixels, i, GRID1_COLOR);
-    }
-
-    // Rysuj drugą siatkę (ciemniejszą)
-    i = 0;
-    while (i < SIZE) : (i += GRID2_SPACING) {
-        drawDashedLine.horizontal(pixels, i, GRID2_COLOR);
-        drawDashedLine.vertical(pixels, i, GRID2_COLOR);
-    }
-
-    // Zapisz jako plik PPM
     try save_to_file(pixels, "file.bmp", img_size, row_size);
+    std.debug.print("Hello World!\n", .{});
+
+    var img = try zigimg.Image.create(allocator, SIZE, SIZE, .rgb24);
+    defer img.deinit();
+
+    try simple_memory_scribes(allocator);
+
+    const mem_proxy = std.mem.sliceAsBytes(img.pixels.rgb24);
+    std.debug.print("+++ proxy len - {}, data len- {}\n", .{ mem_proxy.len, pixels.len });
+    @memcpy(mem_proxy, pixels);
+    try img.writeToFilePath("test.png", .{ .png = .{} });
 }
