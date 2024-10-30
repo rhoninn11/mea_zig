@@ -11,7 +11,7 @@ pub fn wasm_target_build(b: *std.Build) void {
     };
 
     const lib = b.addSharedLibrary(.{
-        .name = "generic_name",
+        .name = "app",
         .root_source_file = b.path("src/wasm.zig"),
         .target = target,
     });
@@ -33,7 +33,7 @@ pub fn build_cli(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "checker_generator",
+        .name = "app",
         .root_source_file = b.path("src/simple_img.zig"),
         .target = target,
         .optimize = optimize,
