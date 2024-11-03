@@ -30,7 +30,7 @@ pub fn build_cli(b: *std.Build) !void {
     const alt = b.option(bool, "alt", "+++ build alternative program") orelse false;
 
     const file_main: []const u8 = "main.zig";
-    const file_alt: []const u8 = "simple_img.zig";
+    const file_alt: []const u8 = "alt.zig";
 
     const src_file = if (alt) file_alt else file_main;
     const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{src_file});
