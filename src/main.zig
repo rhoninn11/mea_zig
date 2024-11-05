@@ -78,6 +78,16 @@ const Circle = struct {
     }
 };
 
+fn createNCircles(comptime n: usize) [n]Circle {
+    var result: [n]Circle = undefined;
+    comptime var i = 0;
+    inline while (i < n) : (i += 1) {
+        result[i] = Circle.basicCircle();
+        std.debug.print("comptime_print {d}", .{i});
+    }
+    return result;
+}
+
 const Osc = struct {
     amp: f32,
     phase: f32,
@@ -108,14 +118,21 @@ fn raylib_loop() !void {
 
     // rl.setTargetFPS(60);
 
-    var red_circle = Circle.basicCircle();
-    red_circle.pos = .{ .x = 100, .y = 200 };
+    const n = 5;
+    var multiple_circles = createNCircles(n);
+    for (0..n) |i| {
+        std.debug.print("i value: {d}", .{i});
+        const idx: i32 = @intCast(i);
+        const x_delta = idx * 100;
+        multiple_circles[i].pos = Vec2i{ .x = 100 + x_delta, .y = 100 };
+    }
 
     var main_osc = Osc.basicOsc();
     main_osc.amp = 25;
 
     var life_time_ms: f64 = 0;
-    while (!rl.windowShouldClose()) {
+    // while (!rl.windowShouldClose()) {
+    while (true) {
         rl.beginDrawing();
         defer rl.endDrawing();
 
@@ -132,7 +149,9 @@ fn raylib_loop() !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        red_circle.draw(main_osc);
+        for (multiple_circles) |circle_inst| {
+            circle_inst.draw(main_osc);
+        }
     }
 }
 
