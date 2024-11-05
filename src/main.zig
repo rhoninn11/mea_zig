@@ -3,35 +3,37 @@ const rl = @import("raylib");
 
 const Inst = std.time.Instant;
 
-const TimeTool = struct {
-    ts_start: Inst,
-    ts_end: Inst,
+const Timeline = struct {
+    then: Inst,
 
-    fn messureFrom(self: *TimeTool) !void {
-        self.ts_start = try Inst.now();
+    fn basic() !Timeline {
+        const timespace = try Inst.now();
+        return Timeline{
+            .then = timespace,
+        };
     }
 
-    fn messsureTo(self: *TimeTool) !void {
-        self.ts_end = try Inst.now();
+    fn messureFrom(self: *Timeline) !void {
+        self.then = try Inst.now();
     }
 
-    fn elapsedInfo(self: TimeTool) f64 {
-        const elapsed_ns: f64 = @floatFromInt(self.ts_end.since(self.ts_start));
+    fn elapsedInfo(self: Timeline) !f64 {
+        const now = try Inst.now();
+        const elapsed_ns: f64 = @floatFromInt(now.since(self.then));
         const elapsed_ms = elapsed_ns / std.time.ns_per_ms;
         return elapsed_ms;
     }
 
-    fn tickMs(self: *TimeTool) !f32 {
-        try self.messsureTo();
-        const time_delta_us = self.elapsedInfo();
+    fn tickMs(self: *Timeline) !f32 {
+        const time_delta_us = try self.elapsedInfo();
         try self.messureFrom();
         return @floatCast(time_delta_us);
     }
 };
 
-fn FreshTimeTool() !TimeTool {
+fn FreshTimeTool() !Timeline {
     const default_inst = try Inst.now();
-    var tt = TimeTool{ .ts_start = default_inst, .ts_end = default_inst };
+    var tt = Timeline{ .then = default_inst, .ts_end = default_inst };
     try tt.messureFrom();
     return tt;
 }
@@ -66,7 +68,7 @@ const Circle = struct {
     fn draw(self: Circle, osc: Osc) void {
         const osc_pos = Vec2i{
             .x = @intFromFloat(std.math.cos(osc.phase) * osc.amp),
-            .y = @intFromFloat(std.math.sin(osc.phase) * osc.amp),
+            .y = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2),
         };
         const circle_pos = self.pos.add(osc_pos);
         const shadow_pos = Vec2i{
@@ -83,7 +85,15 @@ fn createNCircles(comptime n: usize) [n]Circle {
     comptime var i = 0;
     inline while (i < n) : (i += 1) {
         result[i] = Circle.basicCircle();
-        std.debug.print("comptime_print {d}", .{i});
+    }
+    return result;
+}
+
+fn createNOsc(comptime n: usize) [n]Osc {
+    var result: [n]Osc = undefined;
+    comptime var i = 0;
+    inline while (i < n) : (i += 1) {
+        result[i] = Osc.basicOsc();
     }
     return result;
 }
@@ -103,7 +113,24 @@ const Osc = struct {
         const delta_s = time_delta_ms / std.time.ms_per_s;
         self.phase += delta_s * std.math.pi * 2;
     }
+
+    fn updNonEd(self: Osc, time: f32) void {
+        std.debug.print(" cos tam {d.3} cos tam {d.3}", .{ self.phase, time });
+    }
 };
+
+fn u2f(a: u32) f32 {
+    return @as(f32, @floatFromInt(a));
+}
+
+fn u2i(a: u32) i32 {
+    return @as(i32, @intCast(a));
+}
+
+fn calcProgres(i: u32, n: u32, closed: bool) f32 {
+    const dol = if (closed) n - 1 else n;
+    return u2f(i) / u2f(dol);
+}
 
 fn raylib_loop() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -111,7 +138,7 @@ fn raylib_loop() !void {
 
     const screenWidth = 800;
     const screenHeight = 450;
-    var tt = try FreshTimeTool();
+    var tt = try Timeline.basic();
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
@@ -120,15 +147,24 @@ fn raylib_loop() !void {
 
     const n = 5;
     var multiple_circles = createNCircles(n);
-    for (0..n) |i| {
-        std.debug.print("i value: {d}", .{i});
-        const idx: i32 = @intCast(i);
-        const x_delta = idx * 100;
-        multiple_circles[i].pos = Vec2i{ .x = 100 + x_delta, .y = 100 };
-    }
+    var multiple_osc = createNOsc(n);
 
-    var main_osc = Osc.basicOsc();
-    main_osc.amp = 25;
+    const num = @as(u32, n);
+    const init_pos = Vec2i{
+        .x = 100,
+        .y = 100,
+    };
+
+    for (0..n) |i| {
+        const idx: u32 = @intCast(i);
+        const progress = calcProgres(idx, num, true);
+
+        const inst_x = init_pos.x + u2i(idx) * 100;
+        multiple_circles[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
+
+        const phase = progress * 0.5;
+        multiple_osc[i].phase = phase;
+    }
 
     var life_time_ms: f64 = 0;
     // while (!rl.windowShouldClose()) {
@@ -139,8 +175,6 @@ fn raylib_loop() !void {
         rl.clearBackground(THEME[0]);
 
         const time_delta_ms = try tt.tickMs();
-
-        main_osc.update(time_delta_ms);
         life_time_ms += @floatCast(time_delta_ms);
 
         const info_template = "Congrats! You created your first window! Frame time {d:.3} ms\n";
@@ -149,8 +183,9 @@ fn raylib_loop() !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        for (multiple_circles) |circle_inst| {
-            circle_inst.draw(main_osc);
+        for (multiple_circles, &multiple_osc) |this_circle, *that_osc| {
+            that_osc.update(time_delta_ms);
+            this_circle.draw(that_osc.*);
         }
     }
 }
