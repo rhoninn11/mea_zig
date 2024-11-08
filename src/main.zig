@@ -74,6 +74,39 @@ fn calcProgres(i: u32, n: u32, closed: bool) f32 {
     return u2f(i) / u2f(dol);
 }
 
+const rlKey = rl.KeyboardKey;
+
+const signalB = struct {
+    state: bool,
+
+    fn set(self: *signalB, b: bool) void {
+        // if (self.state != b) {
+        //     std.debug.print("hold state change from {}\n", .{self.state});
+        // }
+        self.state = b;
+    }
+
+    fn get(self: signalB) bool {
+        return self.state;
+    }
+};
+
+const keyHold = struct {
+    hold: *signalB,
+    key: rlKey,
+
+    fn space_bar(s: *signalB) keyHold {
+        return keyHold{
+            .hold = s,
+            .key = rlKey.key_space,
+        };
+    }
+
+    fn check_input(self: *keyHold) void {
+        self.hold.set(rl.isKeyDown(self.key));
+    }
+};
+
 fn raylib_loop() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alctr = gpa.allocator();
@@ -108,16 +141,31 @@ fn raylib_loop() !void {
         multiple_osc[i].phase = phase;
     }
 
+    var color_change_signal = signalB{ .state = false };
+    var spacebar = keyHold.space_bar(&color_change_signal);
+
     var life_time_ms: f64 = 0;
     // while (!rl.windowShouldClose()) {
     while (true) {
+        spacebar.check_input();
+
+        const new_color = switch (color_change_signal.get()) {
+            false => rl.Color.maroon,
+            true => rl.Color.dark_purple,
+        };
+
+        multiple_circles[0].setColor(new_color);
+
+        const time_delta_ms = try tt.tickMs();
+        life_time_ms += @floatCast(time_delta_ms);
+        for (&multiple_osc) |*osc| {
+            osc.update(time_delta_ms);
+        }
+
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(THEME[0]);
-
-        const time_delta_ms = try tt.tickMs();
-        life_time_ms += @floatCast(time_delta_ms);
 
         const info_template = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(alctr, info_template, .{time_delta_ms});
@@ -125,9 +173,8 @@ fn raylib_loop() !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        for (multiple_circles, &multiple_osc) |this_circle, *that_osc| {
-            that_osc.update(time_delta_ms);
-            this_circle.draw(that_osc.*);
+        for (multiple_circles, multiple_osc) |this_circle, that_osc| {
+            this_circle.draw(that_osc);
         }
     }
 }

@@ -32,4 +32,8 @@ pub const Circle = struct {
         rl.drawCircle(circle_pos.x, circle_pos.y, 20, self.color);
         rl.drawEllipse(shadow_pos.x, shadow_pos.y, 30, 5, THEME[1]);
     }
+
+    pub fn setColor(self: *Circle, c: rl.Color) void {
+        self.color = c;
+    }
 };
