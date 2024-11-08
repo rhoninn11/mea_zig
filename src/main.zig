@@ -38,47 +38,10 @@ fn FreshTimeTool() !Timeline {
     return tt;
 }
 
-const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
-
-const Vec2i = struct {
-    x: i32,
-    y: i32,
-
-    fn add(self: Vec2i, other: Vec2i) Vec2i {
-        return Vec2i{
-            .x = self.x + other.x,
-            .y = self.y + other.y,
-        };
-    }
-};
-
-const Circle = struct {
-    pos: Vec2i,
-    color: rl.Color,
-    height: i32,
-
-    fn basicCircle() Circle {
-        return Circle{
-            .pos = .{ .x = 100, .y = 100 },
-            .color = rl.Color.maroon,
-            .height = 100,
-        };
-    }
-
-    fn draw(self: Circle, osc: Osc) void {
-        const osc_pos = Vec2i{
-            .x = @intFromFloat(std.math.cos(osc.phase) * osc.amp),
-            .y = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2),
-        };
-        const circle_pos = self.pos.add(osc_pos);
-        const shadow_pos = Vec2i{
-            .x = circle_pos.x,
-            .y = self.pos.y + self.height,
-        };
-        rl.drawCircle(circle_pos.x, circle_pos.y, 20, self.color);
-        rl.drawEllipse(shadow_pos.x, shadow_pos.y, 30, 5, THEME[1]);
-    }
-};
+const Circle = @import("_circle.zig").Circle;
+const Osc = @import("_osc.zig").Osc;
+const Vec2i = @import("_math.zig").Vec2i;
+const THEME = @import("_circle.zig").THEME;
 
 fn createNCircles(comptime n: usize) [n]Circle {
     var result: [n]Circle = undefined;
@@ -97,27 +60,6 @@ fn createNOsc(comptime n: usize) [n]Osc {
     }
     return result;
 }
-
-const Osc = struct {
-    amp: f32,
-    phase: f32,
-
-    fn basicOsc() Osc {
-        return Osc{
-            .amp = 20,
-            .phase = 0,
-        };
-    }
-
-    fn update(self: *Osc, time_delta_ms: f32) void {
-        const delta_s = time_delta_ms / std.time.ms_per_s;
-        self.phase += delta_s * std.math.pi * 2;
-    }
-
-    fn updNonEd(self: Osc, time: f32) void {
-        std.debug.print(" cos tam {d.3} cos tam {d.3}", .{ self.phase, time });
-    }
-};
 
 fn u2f(a: u32) f32 {
     return @as(f32, @floatFromInt(a));
