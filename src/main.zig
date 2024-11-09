@@ -2,41 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const Inst = std.time.Instant;
-
-const Timeline = struct {
-    then: Inst,
-
-    fn basic() !Timeline {
-        const timespace = try Inst.now();
-        return Timeline{
-            .then = timespace,
-        };
-    }
-
-    fn messureFrom(self: *Timeline) !void {
-        self.then = try Inst.now();
-    }
-
-    fn elapsedInfo(self: Timeline) !f64 {
-        const now = try Inst.now();
-        const elapsed_ns: f64 = @floatFromInt(now.since(self.then));
-        const elapsed_ms = elapsed_ns / std.time.ns_per_ms;
-        return elapsed_ms;
-    }
-
-    fn tickMs(self: *Timeline) !f32 {
-        const time_delta_us = try self.elapsedInfo();
-        try self.messureFrom();
-        return @floatCast(time_delta_us);
-    }
-};
-
-fn FreshTimeTool() !Timeline {
-    const default_inst = try Inst.now();
-    var tt = Timeline{ .then = default_inst, .ts_end = default_inst };
-    try tt.messureFrom();
-    return tt;
-}
+const Timeline = @import("_time.zig").Timeline;
 
 const Circle = @import("_circle.zig").Circle;
 const Osc = @import("_osc.zig").Osc;
@@ -79,6 +45,12 @@ const rlKey = rl.KeyboardKey;
 const signalB = struct {
     state: bool,
 
+    fn basic() signalB {
+        return signalB{
+            .state = false,
+        };
+    }
+
     fn set(self: *signalB, b: bool) void {
         // if (self.state != b) {
         //     std.debug.print("hold state change from {}\n", .{self.state});
@@ -101,28 +73,74 @@ const keyHold = struct {
             .key = rlKey.key_space,
         };
     }
+    fn basicKeyHold(s: *signalB, k: rl.KeyboardKey) keyHold {
+        return keyHold{
+            .hold = s,
+            .key = k,
+        };
+    }
 
     fn check_input(self: *keyHold) void {
         self.hold.set(rl.isKeyDown(self.key));
     }
 };
 
+const Signalet = struct {
+    sig: *signalB,
+    key_hld: *keyHold,
+};
+
+fn keysToKeyHold(arena: std.mem.Allocator, comptime n: usize, keys: [n]rl.KeyboardKey) ![n]Signalet {
+    var holds: [n]Signalet = undefined;
+
+    var signals = try arena.alloc(signalB, n);
+    var keyHolds = try arena.alloc(keyHold, n);
+
+    for (keys, 0..) |key, i| {
+        signals[i] = signalB.basic();
+        keyHolds[i] = keyHold.basicKeyHold(&signals[i], key);
+
+        holds[i] = Signalet{
+            .sig = &signals[i],
+            .key_hld = &keyHolds[i],
+        };
+    }
+
+    return holds;
+}
+
+fn color_switch(b: bool) rl.Color {
+    return switch (b) {
+        false => rl.Color.maroon,
+        true => rl.Color.dark_purple,
+    };
+}
+
 fn raylib_loop() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alctr = gpa.allocator();
+    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const fmt_alloc = fmt_gpa.allocator();
+    defer _ = fmt_gpa.deinit();
+
+    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
+    const arena = obj_arena.allocator();
+    defer _ = obj_arena.deinit();
 
     const screenWidth = 800;
     const screenHeight = 450;
-    var tt = try Timeline.basic();
+    var tmln = try Timeline.basic();
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
 
     // rl.setTargetFPS(60);
 
-    const n = 5;
+    const n = 4;
     var multiple_circles = createNCircles(n);
     var multiple_osc = createNOsc(n);
+
+    const keys = .{ rl.KeyboardKey.key_q, rl.KeyboardKey.key_w, rl.KeyboardKey.key_e, rl.KeyboardKey.key_r };
+    const holds = try keysToKeyHold(arena, 4, keys);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -141,22 +159,16 @@ fn raylib_loop() !void {
         multiple_osc[i].phase = phase;
     }
 
-    var color_change_signal = signalB{ .state = false };
-    var spacebar = keyHold.space_bar(&color_change_signal);
-
     var life_time_ms: f64 = 0;
     // while (!rl.windowShouldClose()) {
     while (true) {
-        spacebar.check_input();
+        for (&multiple_circles, holds) |*circle, hold| {
+            hold.key_hld.check_input();
+            const tmp_col = color_switch(hold.sig.get());
+            circle.setColor(tmp_col);
+        }
 
-        const new_color = switch (color_change_signal.get()) {
-            false => rl.Color.maroon,
-            true => rl.Color.dark_purple,
-        };
-
-        multiple_circles[0].setColor(new_color);
-
-        const time_delta_ms = try tt.tickMs();
+        const time_delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(time_delta_ms);
         for (&multiple_osc) |*osc| {
             osc.update(time_delta_ms);
@@ -168,8 +180,8 @@ fn raylib_loop() !void {
         rl.clearBackground(THEME[0]);
 
         const info_template = "Congrats! You created your first window! Frame time {d:.3} ms\n";
-        const info = try std.fmt.allocPrintZ(alctr, info_template, .{time_delta_ms});
-        defer alctr.free(info);
+        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{time_delta_ms});
+        defer fmt_alloc.free(info);
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
