@@ -39,51 +39,9 @@ fn calcProgres(i: u32, n: u32, closed: bool) f32 {
     const dol = if (closed) n - 1 else n;
     return u2f(i) / u2f(dol);
 }
-
-const rlKey = rl.KeyboardKey;
-
-const signalB = struct {
-    state: bool,
-
-    fn basic() signalB {
-        return signalB{
-            .state = false,
-        };
-    }
-
-    fn set(self: *signalB, b: bool) void {
-        // if (self.state != b) {
-        //     std.debug.print("hold state change from {}\n", .{self.state});
-        // }
-        self.state = b;
-    }
-
-    fn get(self: signalB) bool {
-        return self.state;
-    }
-};
-
-const keyHold = struct {
-    hold: *signalB,
-    key: rlKey,
-
-    fn space_bar(s: *signalB) keyHold {
-        return keyHold{
-            .hold = s,
-            .key = rlKey.key_space,
-        };
-    }
-    fn basicKeyHold(s: *signalB, k: rl.KeyboardKey) keyHold {
-        return keyHold{
-            .hold = s,
-            .key = k,
-        };
-    }
-
-    fn check_input(self: *keyHold) void {
-        self.hold.set(rl.isKeyDown(self.key));
-    }
-};
+const input = @import("_input.zig");
+const signalB = input.Hold;
+const keyHold = input.InputKey;
 
 const Signalet = struct {
     sig: *signalB,
@@ -116,6 +74,8 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
+const _in = @import("_input.zig");
+
 fn raylib_loop() !void {
     var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const fmt_alloc = fmt_gpa.allocator();
@@ -125,6 +85,13 @@ fn raylib_loop() !void {
     var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
     const arena = obj_arena.allocator();
     defer _ = obj_arena.deinit();
+
+    {
+        const info_template = "+++ there is kyes {d} \n";
+        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{_in.find_input_keys()});
+        defer fmt_alloc.free(info);
+        std.debug.print("{s}", .{info});
+    }
 
     const screenWidth = 800;
     const screenHeight = 450;
