@@ -75,39 +75,25 @@ fn color_switch(b: bool) rl.Color {
 }
 
 const _in = @import("_input.zig");
+const Allocator = std.mem.Allocator;
 
-fn raylib_loop() !void {
-    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const fmt_alloc = fmt_gpa.allocator();
-    defer _ = fmt_gpa.deinit();
-
-    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
-    const arena = obj_arena.allocator();
-    defer _ = obj_arena.deinit();
-
-    {
-        const info_template = "+++ there is kyes {d} \n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{_in.find_input_keys()});
-        defer fmt_alloc.free(info);
-        std.debug.print("{s}", .{info});
-    }
-
+fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
     const screenWidth = 800;
     const screenHeight = 450;
+
     var tmln = try Timeline.basic();
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
 
-    // rl.setTargetFPS(60);
+    // rl.setTargetFPS(59);
 
     const n = 4;
     var multiple_circles = createNCircles(n);
     var multiple_osc = createNOsc(n);
 
     const keys = .{ rl.KeyboardKey.key_q, rl.KeyboardKey.key_w, rl.KeyboardKey.key_e, rl.KeyboardKey.key_r };
-    const holds = try keysToKeyHold(arena, 4, keys);
+    const holds = try keysToKeyHold(obj_alloc, 4, keys);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -128,7 +114,12 @@ fn raylib_loop() !void {
 
     var life_time_ms: f64 = 0;
     // while (!rl.windowShouldClose()) {
-    while (true) {
+
+    var exit_signal = signalB.basic();
+    var exit_key = keyHold.esc_hold(&exit_signal);
+    while (exit_signal.get() == false) {
+        exit_key.check_input();
+
         for (&multiple_circles, holds) |*circle, hold| {
             hold.key_hld.check_input();
             const tmp_col = color_switch(hold.sig.get());
@@ -147,8 +138,8 @@ fn raylib_loop() !void {
         rl.clearBackground(THEME[0]);
 
         const info_template = "Congrats! You created your first window! Frame time {d:.3} ms\n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{time_delta_ms});
-        defer fmt_alloc.free(info);
+        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{time_delta_ms});
+        defer text_alloc.free(info);
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
@@ -158,7 +149,27 @@ fn raylib_loop() !void {
     }
 }
 
+fn simulation_warmup() !void {
+    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const fmt_alloc = fmt_gpa.allocator();
+    defer _ = fmt_gpa.deinit();
+
+    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
+    const arena = obj_arena.allocator();
+    defer _ = obj_arena.deinit();
+
+    {
+        const info_template = "+++ there is {d} kyes, we need to track for typing\n";
+        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{_in.find_input_keys()});
+        defer fmt_alloc.free(info);
+        std.debug.print("{s}", .{info});
+    }
+
+    try simulation(fmt_alloc, arena);
+}
+
 pub fn main() !void {
     std.debug.print("Hello World!\n", .{});
-    try raylib_loop();
+    try simulation_warmup();
 }

@@ -23,10 +23,10 @@ pub const InputKey = struct {
     hold: *Hold,
     key: rlKey,
 
-    pub fn space_bar(s: *Hold) InputKey {
+    pub fn esc_hold(s: *Hold) InputKey {
         return InputKey{
             .hold = s,
-            .key = rlKey.key_space,
+            .key = rlKey.key_escape,
         };
     }
     pub fn basicKeyHold(s: *Hold, k: rl.KeyboardKey) InputKey {
@@ -56,7 +56,10 @@ pub fn find_input_keys() comptime_int {
 
         var input_kyes_n = 0;
         for (all_keys) |key_name| {
-            if (name_with_underscore(key_name.name)) {
+            // if (name_with_underscore(key_name.name)) {
+            //     input_kyes_n += 1;
+            //  }
+            if (key_name.name.len > 0) {
                 input_kyes_n += 1;
             }
         }
