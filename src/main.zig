@@ -161,7 +161,7 @@ fn simulation_warmup() !void {
 
     {
         const info_template = "+++ there is {d} kyes, we need to track for typing\n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{_in.find_input_keys()});
+        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{0});
         defer fmt_alloc.free(info);
         std.debug.print("{s}", .{info});
     }
@@ -172,4 +172,12 @@ fn simulation_warmup() !void {
 pub fn main() !void {
     std.debug.print("Hello World!\n", .{});
     try simulation_warmup();
+}
+
+test "simple test" {
+    try std.testing.expect(true);
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }

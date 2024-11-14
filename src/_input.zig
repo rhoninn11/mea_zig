@@ -50,31 +50,34 @@ fn name_with_underscore(comptime name: []const u8) bool {
     return false;
 }
 
-// pub fn find_input_keys() []rl.KeyboardKey {
-//     const chars: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
-//     const keys_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
+pub fn find_input_keys() []rl.KeyboardKey {
+    const chars: []const u8 = "qwer";
+    const keys_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
+    var rl_keys: [4]rl.KeyboardKey = undefined;
+    for (chars) |char| {
+        var num: usize = 0;
+        const to_search: []const u8 = &.{ '_', char };
+        inline for (keys_fields) |field| {
+            if (std.mem.indexOf(u8, field.name, to_search)) |_| {
+                // this field name needs to be extracted as rl.KeyboardKey
+                const elo = @field(rl.KeyboardKey, field.name);
+                rl_keys[num] = elo;
+            }
+        }
+        num += 1;
+    }
 
-//     var rl_keys: [chars.len]rl.KeyboardKey = undefined;
-//     for (chars) |char| {
-//         const to_search: []const u8 = &.{ '_', char };
-//         for (keys_fields) |field| {
-//             if (std.mem.indexOf(u8, field.name, to_search)) {
-//                 // this field name needs to be extracted as rl.KeyboardKey
-//                 const elo = @field(rl.KeyboardKey, field.name);
-//             }
-//         }
-//     }
-// }
+    return &rl_keys;
+}
 
 test "find proper keys" {
     const rlk = rl.KeyboardKey;
+    const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+
     // const char_keys: []const u8 = "qwer";
-    // const found_keys = find_input_keys();
+    const found_keys = find_input_keys();
 
-    const enum_keys: []rl.KeyboardKey = .{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
-    const enum_keys_b: []rl.KeyboardKey = .{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
-
-    std.testing.expectEqualSlices(rlk, enum_keys, enum_keys_b);
+    try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
 }
 
 test "string search" {

@@ -20,7 +20,7 @@ pub fn wasm_target_build(b: *std.Build) void {
     b.installArtifact(lib);
 }
 
-const std_compile = std.Build.Step.Compile;
+const Compile = std.Build.Step.Compile;
 
 // comptime fn Options(bld: *std.Build) type {
 //     return struct {
@@ -42,11 +42,7 @@ fn build_options(bld: *std.Build) buildOptions {
     };
 }
 
-pub fn add_raylib(
-    bld: *std.Build,
-    exe: *std_compile,
-    bld_opts: buildOptions,
-) void {
+pub fn add_raylib(bld: *std.Build, exe: *Compile, bld_opts: buildOptions) void {
     const raylib_dep = bld.dependency("raylib-zig", .{
         .target = bld_opts.target,
         .optimize = bld_opts.optimod,
@@ -59,6 +55,14 @@ pub fn add_raylib(
     exe.linkLibrary(raylib_artifact);
     exe.root_module.addImport("raylib", raylib);
     exe.root_module.addImport("raygui", raygui);
+}
+
+pub fn add_zigimg(bld: *std.Build, cmp: *Compile, bld_opt: buildOptions) void {
+    const zig_img = bld.dependency("zigimg", .{
+        .target = bld_opt.target,
+        .optimize = bld_opt.optimod,
+    });
+    cmp.root_module.addImport("zigimg", zig_img.module("zigimg"));
 }
 
 pub fn app_build(b: *std.Build) !void {
@@ -82,17 +86,16 @@ pub fn app_build(b: *std.Build) !void {
         .optimize = bld_opts.optimod,
     });
 
-    const zig_img = b.dependency("zigimg", .{
+    const my_tests = b.addTest(.{
+        .root_source_file = b.path(src_file_path),
         .target = bld_opts.target,
         .optimize = bld_opts.optimod,
     });
-    exe.root_module.addImport("zigimg", zig_img.module("zigimg"));
 
-    add_raylib(
-        b,
-        exe,
-        bld_opts,
-    );
+    add_zigimg(b, exe, bld_opts);
+    add_raylib(b, exe, bld_opts);
+
+    add_raylib(b, my_tests, bld_opts);
 
     b.installArtifact(exe);
 
@@ -100,6 +103,10 @@ pub fn app_build(b: *std.Build) !void {
     const run_exe = b.addRunArtifact(exe);
     const run_step = b.step("run", "+++ run cli app after build");
     run_step.dependOn(&run_exe.step);
+
+    const test_exe = b.addRunArtifact(my_tests);
+    const test_step = b.step("test", "+++ run unit tests");
+    test_step.dependOn(&test_exe.step);
 }
 
 fn cpp_build_exp(b: *std.Build) !void {
