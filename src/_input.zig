@@ -50,21 +50,49 @@ fn name_with_underscore(comptime name: []const u8) bool {
     return false;
 }
 
-pub fn find_input_keys() comptime_int {
-    const k_n = blk: {
-        const all_keys = @typeInfo(rl.KeyboardKey).Enum.fields;
+// pub fn find_input_keys() []rl.KeyboardKey {
+//     const chars: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
+//     const keys_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
 
-        var input_kyes_n = 0;
-        for (all_keys) |key_name| {
-            // if (name_with_underscore(key_name.name)) {
-            //     input_kyes_n += 1;
-            //  }
-            if (key_name.name.len > 0) {
-                input_kyes_n += 1;
-            }
-        }
+//     var rl_keys: [chars.len]rl.KeyboardKey = undefined;
+//     for (chars) |char| {
+//         const to_search: []const u8 = &.{ '_', char };
+//         for (keys_fields) |field| {
+//             if (std.mem.indexOf(u8, field.name, to_search)) {
+//                 // this field name needs to be extracted as rl.KeyboardKey
+//                 const elo = @field(rl.KeyboardKey, field.name);
+//             }
+//         }
+//     }
+// }
 
-        break :blk input_kyes_n;
-    };
-    return k_n;
+test "find proper keys" {
+    const rlk = rl.KeyboardKey;
+    // const char_keys: []const u8 = "qwer";
+    // const found_keys = find_input_keys();
+
+    const enum_keys: []rl.KeyboardKey = .{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+    const enum_keys_b: []rl.KeyboardKey = .{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+
+    std.testing.expectEqualSlices(rlk, enum_keys, enum_keys_b);
+}
+
+test "string search" {
+    const result = std.mem.indexOf(u8, "jakas randomowa nazwa z ą oraz _q i alfa", " ą");
+    try std.testing.expect(result != null);
+}
+
+pub fn mem_comp() void {
+    const simple_text = "key_a";
+    var result_1 = std.mem.split(u8, simple_text, "_");
+    while (result_1.next()) |part| {
+        std.debug.print("{s}\n", .{part});
+    }
+    std.debug.print("{s}\n", .{simple_text});
+
+    const letters: []const u8 = "qwertyuiop";
+    for (letters) |lt| {
+        const sub: []const u8 = &.{ '_', lt };
+        std.debug.print("{s}\n", .{sub});
+    }
 }
