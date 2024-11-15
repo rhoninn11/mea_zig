@@ -92,7 +92,10 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
     var multiple_circles = createNCircles(n);
     var multiple_osc = createNOsc(n);
 
-    const keys = .{ rl.KeyboardKey.key_q, rl.KeyboardKey.key_w, rl.KeyboardKey.key_e, rl.KeyboardKey.key_r };
+    // const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
+    // const letter_keys = _in.find_input_keys(letters, 26);
+
+    const keys = _in.find_input_keys("qwer", 4);
     const holds = try keysToKeyHold(obj_alloc, 4, keys);
 
     const num = @as(u32, n);

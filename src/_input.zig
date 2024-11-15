@@ -50,7 +50,7 @@ fn name_with_underscore(comptime name: []const u8) bool {
     return false;
 }
 
-fn find_input_key(char_to_find: u8) rl.KeyboardKey {
+pub fn find_input_key(char_to_find: u8) rl.KeyboardKey {
     const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
     const match_chunk: []const u8 = &.{ '_', char_to_find };
     var result: rl.KeyboardKey = undefined;
@@ -63,7 +63,7 @@ fn find_input_key(char_to_find: u8) rl.KeyboardKey {
     return result;
 }
 
-fn find_input_keys(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
+pub fn find_input_keys(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
     const b = init: {
         var elo: [len]rl.KeyboardKey = undefined;
         for (chars_to_find, 0..) |char, i| {
