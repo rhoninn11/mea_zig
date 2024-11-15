@@ -50,26 +50,6 @@ fn name_with_underscore(comptime name: []const u8) bool {
     return false;
 }
 
-// pub fn find_input_keys() []rl.KeyboardKey {
-//     const chars: []const u8 = "qwer";
-//     const keys_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
-//     var rl_keys: [4]rl.KeyboardKey = undefined;
-//     for (chars) |char| {
-//         var num: usize = 0;
-//         const to_search: []const u8 = &.{ '_', char };
-//         inline for (keys_fields) |field| {
-//             if (std.mem.indexOf(u8, field.name, to_search)) |_| {
-//                 // this field name needs to be extracted as rl.KeyboardKey
-//                 const elo = @field(rl.KeyboardKey, field.name);
-//                 rl_keys[num] = elo;
-//             }
-//         }
-//         num += 1;
-//     }
-
-//     return &rl_keys;
-// }
-
 fn find_input_key(char_to_find: u8) rl.KeyboardKey {
     const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
     const match_chunk: []const u8 = &.{ '_', char_to_find };
@@ -81,6 +61,17 @@ fn find_input_key(char_to_find: u8) rl.KeyboardKey {
         }
     }
     return result;
+}
+
+fn find_input_keys(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
+    const b = init: {
+        var elo: [len]rl.KeyboardKey = undefined;
+        for (chars_to_find, 0..) |char, i| {
+            elo[i] = find_input_key(char);
+        }
+        break :init elo;
+    };
+    return b;
 }
 
 test "just single key" {
@@ -95,15 +86,16 @@ test "just single key" {
     try std.testing.expect(tmp == result_b);
 }
 
-// test "find proper keys" {
-//     const rlk = rl.KeyboardKey;
-//     const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+test "find multiple keys" {
+    const rlk = rl.KeyboardKey;
+    const chars = "qwer";
+    const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
 
-//     // const char_keys: []const u8 = "qwer";
-//     const found_keys = find_input_keys();
+    // const char_keys: []const u8 = "qwer";
+    const found_keys: []const rl.KeyboardKey = &find_input_keys(chars, 4);
 
-//     try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
-// }
+    try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
+}
 
 test "string search" {
     const result = std.mem.indexOf(u8, "jakas randomowa nazwa z ą oraz _q i alfa", " ą");
