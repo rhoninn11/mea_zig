@@ -1,54 +1,47 @@
 const rl = @import("raylib");
 const rlKey = rl.KeyboardKey;
 
-pub const Hold = struct {
+pub const Signal = struct {
     state: bool,
 
-    pub fn basic() Hold {
-        return Hold{
+    pub fn basic() Signal {
+        return Signal{
             .state = false,
         };
     }
 
-    pub fn set(self: *Hold, b: bool) void {
+    pub fn set(self: *Signal, b: bool) void {
         self.state = b;
     }
 
-    pub fn get(self: Hold) bool {
+    pub fn get(self: Signal) bool {
         return self.state;
     }
 };
 
-pub const InputKey = struct {
-    hold: *Hold,
+pub const KbKey = struct {
+    hold: Signal,
     key: rlKey,
 
-    pub fn esc_hold(s: *Hold) InputKey {
-        return InputKey{
-            .hold = s,
+    pub fn esc_hold() KbKey {
+        return KbKey{
+            .hold = Signal.basic(),
             .key = rlKey.key_escape,
         };
     }
-    pub fn basicKeyHold(s: *Hold, k: rl.KeyboardKey) InputKey {
-        return InputKey{
-            .hold = s,
+    pub fn basicKeyHold(k: rl.KeyboardKey) KbKey {
+        return KbKey{
+            .hold = Signal.basic(),
             .key = k,
         };
     }
 
-    pub fn check_input(self: *InputKey) void {
+    pub fn check_input(self: *KbKey) void {
         self.hold.set(rl.isKeyDown(self.key));
     }
 };
 
 const std = @import("std");
-
-fn name_with_underscore(comptime name: []const u8) bool {
-    if (std.mem.indexOf(u8, name, "_")) {
-        return true;
-    }
-    return false;
-}
 
 pub fn find_input_key(char_to_find: u8) rl.KeyboardKey {
     const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
@@ -97,22 +90,11 @@ test "find multiple keys" {
     try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
 }
 
-test "string search" {
-    const result = std.mem.indexOf(u8, "jakas randomowa nazwa z ą oraz _q i alfa", " ą");
-    try std.testing.expect(result != null);
-}
-
-pub fn mem_comp() void {
-    const simple_text = "key_a";
-    var result_1 = std.mem.split(u8, simple_text, "_");
-    while (result_1.next()) |part| {
-        std.debug.print("{s}\n", .{part});
+pub fn KbSignals(key_enums: []const rl.KeyboardKey, comptime n: usize) [n]KbKey {
+    var holds: [n]KbKey = undefined;
+    for (key_enums, 0..) |key, i| {
+        holds[i] = KbKey.basicKeyHold(key);
     }
-    std.debug.print("{s}\n", .{simple_text});
 
-    const letters: []const u8 = "qwertyuiop";
-    for (letters) |lt| {
-        const sub: []const u8 = &.{ '_', lt };
-        std.debug.print("{s}\n", .{sub});
-    }
+    return holds;
 }

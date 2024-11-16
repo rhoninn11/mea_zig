@@ -6,6 +6,13 @@ const Osc = @import("_osc.zig").Osc;
 
 pub const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
 
+fn color_switch(b: bool) rl.Color {
+    return switch (b) {
+        false => rl.Color.maroon,
+        true => rl.Color.dark_purple,
+    };
+}
+
 pub const Circle = struct {
     pos: Vec2i,
     color: rl.Color,
@@ -33,7 +40,8 @@ pub const Circle = struct {
         rl.drawEllipse(shadow_pos.x, shadow_pos.y, 30, 5, THEME[1]);
     }
 
-    pub fn setColor(self: *Circle, c: rl.Color) void {
-        self.color = c;
+    pub fn setColor(self: *Circle, opt: bool) void {
+        const color = color_switch(opt);
+        self.color = color;
     }
 };

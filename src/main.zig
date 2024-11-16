@@ -1,5 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
+const rlui = @import("raygui");
 
 const Inst = std.time.Instant;
 const Timeline = @import("_time.zig").Timeline;
@@ -39,29 +40,14 @@ fn calcProgres(i: u32, n: u32, closed: bool) f32 {
     const dol = if (closed) n - 1 else n;
     return u2f(i) / u2f(dol);
 }
-const input = @import("_input.zig");
-const signalB = input.Hold;
-const keyHold = input.InputKey;
+const InputModule = @import("modules/InputModule.zig");
+const Signal = InputModule.Signal;
+const KbKey = InputModule.KbKey;
 
-const Signalet = struct {
-    sig: *signalB,
-    key_hld: *keyHold,
-};
-
-fn keysToKeyHold(arena: std.mem.Allocator, comptime n: usize, keys: [n]rl.KeyboardKey) ![n]Signalet {
-    var holds: [n]Signalet = undefined;
-
-    var signals = try arena.alloc(signalB, n);
-    var keyHolds = try arena.alloc(keyHold, n);
-
-    for (keys, 0..) |key, i| {
-        signals[i] = signalB.basic();
-        keyHolds[i] = keyHold.basicKeyHold(&signals[i], key);
-
-        holds[i] = Signalet{
-            .sig = &signals[i],
-            .key_hld = &keyHolds[i],
-        };
+fn KBSignals(comptime n: usize, key_enums: [n]rl.KeyboardKey) ![n]KbKey {
+    var holds: [n]KbKey = undefined;
+    for (key_enums, 0..) |key, i| {
+        holds[i] = KbKey.basic(key);
     }
 
     return holds;
@@ -74,29 +60,30 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
-const _in = @import("_input.zig");
 const Allocator = std.mem.Allocator;
 
 fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
+    _ = obj_alloc;
+
     const screenWidth = 800;
     const screenHeight = 450;
-
-    var tmln = try Timeline.basic();
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
 
+    var tmln = try Timeline.basic();
     // rl.setTargetFPS(59);
 
-    const n = 4;
-    var multiple_circles = createNCircles(n);
-    var multiple_osc = createNOsc(n);
+    const n = 5;
+    const reactive_letters = "qwert";
+    const keys = InputModule.find_input_keys(reactive_letters, n);
+    var kb_keys = InputModule.KbSignals(&keys, n);
+    var osc_arr = createNOsc(n);
+    var simple_graphics = createNCircles(n);
 
+    // const n_letters
     // const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
     // const letter_keys = _in.find_input_keys(letters, 26);
-
-    const keys = _in.find_input_keys("qwer", 4);
-    const holds = try keysToKeyHold(obj_alloc, 4, keys);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -109,29 +96,29 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
         const progress = calcProgres(idx, num, true);
 
         const inst_x = init_pos.x + u2i(idx) * 100;
-        multiple_circles[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
+        simple_graphics[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
 
         const phase = progress * 0.5;
-        multiple_osc[i].phase = phase;
+        osc_arr[i].phase = phase;
     }
 
     var life_time_ms: f64 = 0;
     // while (!rl.windowShouldClose()) {
 
-    var exit_signal = signalB.basic();
-    var exit_key = keyHold.esc_hold(&exit_signal);
+    var exit_key = KbKey.esc_hold();
+    const exit_signal = &exit_key.hold;
     while (exit_signal.get() == false) {
         exit_key.check_input();
 
-        for (&multiple_circles, holds) |*circle, hold| {
-            hold.key_hld.check_input();
-            const tmp_col = color_switch(hold.sig.get());
-            circle.setColor(tmp_col);
+        for (&kb_keys) |*key_from_kb| key_from_kb.check_input();
+
+        for (&simple_graphics, &kb_keys) |*circle, key_from_kb| {
+            circle.setColor(key_from_kb.hold.get());
         }
 
         const time_delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(time_delta_ms);
-        for (&multiple_osc) |*osc| {
+        for (&osc_arr) |*osc| {
             osc.update(time_delta_ms);
         }
 
@@ -146,9 +133,15 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        for (multiple_circles, multiple_osc) |this_circle, that_osc| {
+        for (simple_graphics, osc_arr) |this_circle, that_osc| {
             this_circle.draw(that_osc);
         }
+
+        const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
+        _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
+
+        //     const text_box_loc = rl.rectangle{ .height = 100, .width = 300, .x = 400, .y = 300};
+        //     rlui.guitextbox(text_box_loc, text: [*:0]u8, textsize: i32, editmode: bool)
     }
 }
 
