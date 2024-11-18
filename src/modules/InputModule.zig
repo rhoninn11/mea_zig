@@ -18,8 +18,12 @@ pub const Signal = struct {
 pub const SignalCode = struct {
     const Self = @This();
 
-    base: Signal = Signal,
+    base: Signal = Signal{},
     positive: u8 = 'a',
+
+    pub fn inst(code: u8) Self {
+        return Self{ .positive = code };
+    }
 
     pub fn decode(self: Self) u8 {
         return switch (self.base.state) {
@@ -30,18 +34,21 @@ pub const SignalCode = struct {
 };
 
 pub const KbKey = struct {
-    hold: Signal = Signal,
+    hold: SignalCode = SignalCode{},
     key: rlKey,
 
     pub fn esc_hold() KbKey {
         return KbKey{ .key = rlKey.key_escape };
     }
-    pub fn basic(k: rl.KeyboardKey) KbKey {
-        return KbKey{ .key = k };
+    pub fn inst(k: rl.KeyboardKey, code: u8) KbKey {
+        return KbKey{
+            .key = k,
+            .hold = SignalCode.inst(code),
+        };
     }
 
     pub fn check_input(self: *KbKey) void {
-        self.hold.set(rl.isKeyDown(self.key));
+        self.hold.base.set(rl.isKeyDown(self.key));
     }
 };
 
@@ -94,10 +101,10 @@ test "find multiple keys" {
     try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
 }
 
-pub fn KbSignals(key_enums: []const rl.KeyboardKey, comptime n: usize) [n]KbKey {
+pub fn KbSignals(key_enums: []const rl.KeyboardKey, code_arr: []const u8, comptime n: usize) [n]KbKey {
     var holds: [n]KbKey = undefined;
-    for (key_enums, 0..) |key, i| {
-        holds[i] = KbKey.basic(key);
+    for (key_enums, code_arr, 0..) |key, code, i| {
+        holds[i] = KbKey.inst(key, code);
     }
 
     return holds;

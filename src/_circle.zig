@@ -18,19 +18,10 @@ fn color_switch(b: bool) rl.Color {
 pub const Circle = struct {
     const Self = @This();
 
-    pos: Vec2i,
-    color: rl.Color,
-    height: i32,
-    sig: ?*Signal,
-
-    pub fn basicCircle() Self {
-        return Self{
-            .pos = .{ .x = 100, .y = 100 },
-            .color = rl.Color.maroon,
-            .height = 100,
-            .sig = null,
-        };
-    }
+    pos: Vec2i = .{ .x = 100, .y = 100 },
+    color: rl.Color = rl.Color.maroon,
+    height: i32 = 100,
+    sig: ?*Signal = null,
 
     pub fn draw(self: Self, osc: Osc) void {
         const osc_pos = Vec2i{

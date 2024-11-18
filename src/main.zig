@@ -2,7 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 const rlui = @import("raygui");
 
-const Inst = std.time.Instant;
+const Allocator = std.mem.Allocator;
 const Timeline = @import("_time.zig").Timeline;
 
 const Circle = @import("_circle.zig").Circle;
@@ -10,21 +10,17 @@ const Osc = @import("_osc.zig").Osc;
 const Vec2i = @import("_math.zig").Vec2i;
 const THEME = @import("_circle.zig").THEME;
 
+const TextInputModule = @import("modules/TextInputModule.zig");
+const TextInputTest = TextInputModule.TextInputTest;
+const sniffer = TextInputModule.AlfanumericIn.clickSniffer;
+
 fn createNCircles(comptime n: usize) [n]Circle {
-    var result: [n]Circle = undefined;
-    comptime var i = 0;
-    inline while (i < n) : (i += 1) {
-        result[i] = Circle.basicCircle();
-    }
+    const result: [n]Circle = .{Circle{}} ** n;
     return result;
 }
 
 fn createNOsc(comptime n: usize) [n]Osc {
-    var result: [n]Osc = undefined;
-    comptime var i = 0;
-    inline while (i < n) : (i += 1) {
-        result[i] = Osc.basicOsc();
-    }
+    const result: [n]Osc = .{Osc{}} ** n;
     return result;
 }
 
@@ -46,16 +42,13 @@ const KbKey = InputModule.KbKey;
 
 fn KBSignals(comptime n: usize, key_enums: [n]rl.KeyboardKey) ![n]KbKey {
     var holds: [n]KbKey = undefined;
-    for (key_enums, 0..) |key, i| {
-        holds[i] = KbKey.basic(key);
-    }
-
+    for (key_enums, 0..) |key, i| holds[i] = KbKey.inst(key);
     return holds;
 }
 
 fn ExtractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
     var sig_arr: [n]*Signal = undefined;
-    for (kb_keys, 0..) |*kb, i| sig_arr[i] = &kb.hold;
+    for (kb_keys, 0..) |*kb, i| sig_arr[i] = &kb.hold.base;
     return sig_arr;
 }
 
@@ -63,55 +56,34 @@ fn WireSignals(comptime n: usize, sig_arr: *[n]*Signal, circle_arr: *[n]Circle) 
     for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
-const Allocator = std.mem.Allocator;
-const VF2 = @Vector(2, f32);
-
-const ForTexting = struct {
-    size: VF2 = .{ 300, 100 },
-    pos: VF2 = .{ 400, 300 },
-    text_memory: [:0]u8,
-
-    fn basic(arena: Allocator) !ForTexting {
-        var buffer = try arena.allocSentinel(u8, 64, 0);
-        @memcpy(buffer[0..24], "cokolwiek by tu nie\nbylo");
-        return ForTexting{ .text_memory = buffer };
-    }
-
-    fn draw(self: ForTexting) void {
-        const rect = rl.Rectangle{
-            .width = self.size[0],
-            .height = self.size[1],
-            .x = self.pos[0],
-            .y = self.pos[1],
-        };
-        _ = rlui.guiTextBox(rect, self.text_memory.ptr, 82, false);
-    }
-};
-
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
     const screenHeight = 450;
 
-    rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
+    const tile: [:0]const u8 = "raylib-zig [core] example - basic window";
+
+    rl.initWindow(screenWidth, screenHeight, tile.ptr);
     defer rl.closeWindow();
 
     var tmln = try Timeline.basic();
     // rl.setTargetFPS(59);
 
     const n = 5;
-    const reactive_letters = "qwert";
-    const keys = InputModule.find_input_keys(reactive_letters, n);
-    var kb_keys = InputModule.KbSignals(&keys, n);
-    var sig_arr = ExtractSignals(n, &kb_keys);
-    var osc_arr = createNOsc(n);
+
     var cirlce_arr = createNCircles(n);
+    var osc_arr = createNOsc(n);
+    const action_letters = "qwert";
+    const keys = InputModule.find_input_keys(action_letters, n);
+    var kb_keys = InputModule.KbSignals(&keys, action_letters, n);
+    var sig_arr = ExtractSignals(n, &kb_keys);
+
     WireSignals(n, &sig_arr, &cirlce_arr);
 
-    var prompt_box = try ForTexting.basic(arena);
+    var prompt_box = try TextInputTest.init(arena);
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
-    const letter_keys = InputModule.find_input_keys(letters, n_letters);
-    _ = InputModule.KbSignals(&letter_keys, n_letters);
+    const letter_enums = InputModule.find_input_keys(letters, n_letters);
+    var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -133,12 +105,15 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var life_time_ms: f64 = 0;
 
     var exit_key = KbKey.esc_hold();
-    const exit_signal = &exit_key.hold;
+    const exit_signal = &exit_key.hold.base;
     while (exit_signal.get() == false) {
         // exit_key.check_input();
 
+        for (&letter_keys) |*key_from_kb| key_from_kb.check_input();
         for (&kb_keys) |*key_from_kb| key_from_kb.check_input();
         for (&cirlce_arr) |*circle| circle.update();
+
+        sniffer(&letter_keys);
 
         const time_delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(time_delta_ms);
@@ -151,7 +126,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         rl.clearBackground(THEME[0]);
 
-        const info_template = "Congrats! You created your first window! Frame time {d:.3} ms\n";
+        const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{time_delta_ms});
         defer text_alloc.free(info);
 
