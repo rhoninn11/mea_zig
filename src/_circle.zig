@@ -4,6 +4,8 @@ const std = @import("std");
 const Vec2i = @import("_math.zig").Vec2i;
 const Osc = @import("_osc.zig").Osc;
 
+const Signal = @import("modules/InputModule.zig").Signal;
+
 pub const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
 
 fn color_switch(b: bool) rl.Color {
@@ -14,19 +16,23 @@ fn color_switch(b: bool) rl.Color {
 }
 
 pub const Circle = struct {
+    const Self = @This();
+
     pos: Vec2i,
     color: rl.Color,
     height: i32,
+    sig: ?*Signal,
 
-    pub fn basicCircle() Circle {
-        return Circle{
+    pub fn basicCircle() Self {
+        return Self{
             .pos = .{ .x = 100, .y = 100 },
             .color = rl.Color.maroon,
             .height = 100,
+            .sig = null,
         };
     }
 
-    pub fn draw(self: Circle, osc: Osc) void {
+    pub fn draw(self: Self, osc: Osc) void {
         const osc_pos = Vec2i{
             .x = @intFromFloat(std.math.cos(osc.phase) * osc.amp),
             .y = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2),
@@ -40,8 +46,15 @@ pub const Circle = struct {
         rl.drawEllipse(shadow_pos.x, shadow_pos.y, 30, 5, THEME[1]);
     }
 
+    pub fn update(self: *Self) void {
+        const sig_eval: bool = if (self.sig) |sig| sig.get() else false;
+        self.setColor(sig_eval);
+    }
+
     pub fn setColor(self: *Circle, opt: bool) void {
-        const color = color_switch(opt);
-        self.color = color;
+        self.color = switch (opt) {
+            false => rl.Color.maroon,
+            true => rl.Color.dark_purple,
+        };
     }
 };

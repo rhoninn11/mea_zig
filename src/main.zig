@@ -53,18 +53,42 @@ fn KBSignals(comptime n: usize, key_enums: [n]rl.KeyboardKey) ![n]KbKey {
     return holds;
 }
 
-fn color_switch(b: bool) rl.Color {
-    return switch (b) {
-        false => rl.Color.maroon,
-        true => rl.Color.dark_purple,
-    };
+fn ExtractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
+    var sig_arr: [n]*Signal = undefined;
+    for (kb_keys, 0..) |*kb, i| sig_arr[i] = &kb.hold;
+    return sig_arr;
+}
+
+fn WireSignals(comptime n: usize, sig_arr: *[n]*Signal, circle_arr: *[n]Circle) void {
+    for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
 const Allocator = std.mem.Allocator;
+const VF2 = @Vector(2, f32);
 
-fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
-    _ = obj_alloc;
+const ForTexting = struct {
+    size: VF2 = .{ 300, 100 },
+    pos: VF2 = .{ 400, 300 },
+    text_memory: [:0]u8,
 
+    fn basic(arena: Allocator) !ForTexting {
+        var buffer = try arena.allocSentinel(u8, 64, 0);
+        @memcpy(buffer[0..24], "cokolwiek by tu nie\nbylo");
+        return ForTexting{ .text_memory = buffer };
+    }
+
+    fn draw(self: ForTexting) void {
+        const rect = rl.Rectangle{
+            .width = self.size[0],
+            .height = self.size[1],
+            .x = self.pos[0],
+            .y = self.pos[1],
+        };
+        _ = rlui.guiTextBox(rect, self.text_memory.ptr, 82, false);
+    }
+};
+
+fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
     const screenHeight = 450;
 
@@ -78,12 +102,16 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
     const reactive_letters = "qwert";
     const keys = InputModule.find_input_keys(reactive_letters, n);
     var kb_keys = InputModule.KbSignals(&keys, n);
+    var sig_arr = ExtractSignals(n, &kb_keys);
     var osc_arr = createNOsc(n);
-    var simple_graphics = createNCircles(n);
+    var cirlce_arr = createNCircles(n);
+    WireSignals(n, &sig_arr, &cirlce_arr);
 
-    // const n_letters
-    // const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
-    // const letter_keys = _in.find_input_keys(letters, 26);
+    var prompt_box = try ForTexting.basic(arena);
+    const n_letters = 26;
+    const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
+    const letter_keys = InputModule.find_input_keys(letters, n_letters);
+    _ = InputModule.KbSignals(&letter_keys, n_letters);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -96,25 +124,21 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
         const progress = calcProgres(idx, num, true);
 
         const inst_x = init_pos.x + u2i(idx) * 100;
-        simple_graphics[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
+        cirlce_arr[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
 
         const phase = progress * 0.5;
         osc_arr[i].phase = phase;
     }
 
     var life_time_ms: f64 = 0;
-    // while (!rl.windowShouldClose()) {
 
     var exit_key = KbKey.esc_hold();
     const exit_signal = &exit_key.hold;
     while (exit_signal.get() == false) {
-        exit_key.check_input();
+        // exit_key.check_input();
 
         for (&kb_keys) |*key_from_kb| key_from_kb.check_input();
-
-        for (&simple_graphics, &kb_keys) |*circle, key_from_kb| {
-            circle.setColor(key_from_kb.hold.get());
-        }
+        for (&cirlce_arr) |*circle| circle.update();
 
         const time_delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(time_delta_ms);
@@ -133,15 +157,14 @@ fn simulation(text_alloc: Allocator, obj_alloc: Allocator) !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        for (simple_graphics, osc_arr) |this_circle, that_osc| {
+        for (cirlce_arr, osc_arr) |this_circle, that_osc| {
             this_circle.draw(that_osc);
         }
 
         const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
         _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
 
-        //     const text_box_loc = rl.rectangle{ .height = 100, .width = 300, .x = 400, .y = 300};
-        //     rlui.guitextbox(text_box_loc, text: [*:0]u8, textsize: i32, editmode: bool)
+        prompt_box.draw();
     }
 }
 
@@ -168,10 +191,6 @@ fn simulation_warmup() !void {
 pub fn main() !void {
     std.debug.print("Hello World!\n", .{});
     try simulation_warmup();
-}
-
-test "simple test" {
-    try std.testing.expect(true);
 }
 
 test {

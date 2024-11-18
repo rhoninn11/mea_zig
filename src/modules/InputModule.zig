@@ -2,38 +2,42 @@ const rl = @import("raylib");
 const rlKey = rl.KeyboardKey;
 
 pub const Signal = struct {
-    state: bool,
+    const Self = @This();
 
-    pub fn basic() Signal {
-        return Signal{
-            .state = false,
-        };
-    }
+    state: bool = false,
 
-    pub fn set(self: *Signal, b: bool) void {
+    pub fn set(self: *Self, b: bool) void {
         self.state = b;
     }
 
-    pub fn get(self: Signal) bool {
+    pub fn get(self: Self) bool {
         return self.state;
     }
 };
 
+pub const SignalCode = struct {
+    const Self = @This();
+
+    base: Signal = Signal,
+    positive: u8 = 'a',
+
+    pub fn decode(self: Self) u8 {
+        return switch (self.base.state) {
+            true => self.positive,
+            false => 0,
+        };
+    }
+};
+
 pub const KbKey = struct {
-    hold: Signal,
+    hold: Signal = Signal,
     key: rlKey,
 
     pub fn esc_hold() KbKey {
-        return KbKey{
-            .hold = Signal.basic(),
-            .key = rlKey.key_escape,
-        };
+        return KbKey{ .key = rlKey.key_escape };
     }
-    pub fn basicKeyHold(k: rl.KeyboardKey) KbKey {
-        return KbKey{
-            .hold = Signal.basic(),
-            .key = k,
-        };
+    pub fn basic(k: rl.KeyboardKey) KbKey {
+        return KbKey{ .key = k };
     }
 
     pub fn check_input(self: *KbKey) void {
@@ -93,7 +97,7 @@ test "find multiple keys" {
 pub fn KbSignals(key_enums: []const rl.KeyboardKey, comptime n: usize) [n]KbKey {
     var holds: [n]KbKey = undefined;
     for (key_enums, 0..) |key, i| {
-        holds[i] = KbKey.basicKeyHold(key);
+        holds[i] = KbKey.basic(key);
     }
 
     return holds;
