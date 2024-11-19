@@ -11,8 +11,7 @@ const Vec2i = @import("_math.zig").Vec2i;
 const THEME = @import("_circle.zig").THEME;
 
 const TextInputModule = @import("modules/TextInputModule.zig");
-const TextInputTest = TextInputModule.TextInputTest;
-const sniffer = TextInputModule.AlfanumericIn.clickSniffer;
+const TxtEditor = TextInputModule.AlfanumericBufforEditor;
 
 fn createNCircles(comptime n: usize) [n]Circle {
     const result: [n]Circle = .{Circle{}} ** n;
@@ -79,11 +78,11 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     WireSignals(n, &sig_arr, &cirlce_arr);
 
-    var prompt_box = try TextInputTest.init(arena);
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
     const letter_enums = InputModule.find_input_keys(letters, n_letters);
     var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
+    var txt_editor = try TxtEditor.spawn(arena);
 
     const num = @as(u32, n);
     const init_pos = Vec2i{
@@ -113,13 +112,11 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         for (&kb_keys) |*key_from_kb| key_from_kb.check_input();
         for (&cirlce_arr) |*circle| circle.update();
 
-        sniffer(&letter_keys);
-
         const time_delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(time_delta_ms);
-        for (&osc_arr) |*osc| {
-            osc.update(time_delta_ms);
-        }
+
+        for (&osc_arr) |*osc| osc.update(time_delta_ms);
+        txt_editor.collectInput(&letter_keys, time_delta_ms);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -132,14 +129,13 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
+        rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
         for (cirlce_arr, osc_arr) |this_circle, that_osc| {
             this_circle.draw(that_osc);
         }
 
         const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
         _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
-
-        prompt_box.draw();
     }
 }
 

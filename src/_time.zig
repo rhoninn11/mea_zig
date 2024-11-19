@@ -28,3 +28,20 @@ pub const Timeline = struct {
         return @floatCast(time_delta_us);
     }
 };
+
+pub const TimeLock = struct {
+    const Self = @This();
+
+    lock_time_ms: f32 = 100,
+    time_counter: f32 = 0,
+
+    pub fn arm(self: *Self) void {
+        self.time_counter = self.lock_time_ms;
+    }
+
+    pub fn lockPass(self: *Self, delta_ms: f32) bool {
+        const updated = self.time_counter - delta_ms;
+        self.time_counter = if (updated <= 0) 0 else updated;
+        return self.time_counter == 0;
+    }
+};

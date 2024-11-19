@@ -7,37 +7,52 @@ const rl = @import("raylib");
 const InputModule = @import("InputModule.zig");
 const KbKey = InputModule.KbKey;
 
-const Self = @This();
+const TimeLock = @import("../_time.zig").TimeLock;
 
-pub const AlfanumericIn = struct {
-    pub fn clickSniffer(keys: []KbKey) void {
-        for (keys) |key| {
+pub const AlfanumericBufforEditor = struct {
+    const Self = @This();
+
+    rate_limiter: TimeLock = TimeLock{},
+    buffor: [:0]u8,
+    char_num: u16,
+    line_num: u16,
+
+    pub fn spawn(arena: Allocator) !Self {
+        const buffor = try arena.allocSentinel(u8, 1000, 0);
+        buffor[0] = 0;
+        return AlfanumericBufforEditor{
+            .buffor = buffor,
+            .char_num = 0,
+            .line_num = 0,
+        };
+    }
+
+    fn addCharacter(self: *Self, char: u8) void {
+        self.buffor[self.char_num] = char;
+        self.char_num += 1;
+
+        if ((self.char_num - self.line_num) % 20 == 0) {
+            self.buffor[self.char_num] = '\n';
+            self.char_num += 1;
+            self.line_num += 1;
+        }
+        self.buffor[self.char_num] = 0;
+    }
+
+    pub fn collectInput(self: *Self, keys: []KbKey, dt_ms: f32) void {
+        if (self.rate_limiter.lockPass(dt_ms) == false)
+            return;
+
+        over_keys: for (keys) |key| {
             if (key.hold.base.get()) {
-                std.debug.print("key {c} clicked\n", .{key.hold.decode()});
+                self.addCharacter(key.hold.decode());
+                self.rate_limiter.arm();
+                break :over_keys;
             }
         }
     }
-};
 
-const VF2 = @Vector(2, f32);
-pub const TextInputTest = struct {
-    size: VF2 = .{ 300, 100 },
-    pos: VF2 = .{ 400, 300 },
-    text_memory: [:0]u8,
-
-    pub fn init(arena: Allocator) !TextInputTest {
-        var buffer = try arena.allocSentinel(u8, 64, 0);
-        @memcpy(buffer[0..24], "cokolwiek by tu nie\nbylo");
-        return TextInputTest{ .text_memory = buffer };
-    }
-
-    pub fn draw(self: TextInputTest) void {
-        const rect = rl.Rectangle{
-            .width = self.size[0],
-            .height = self.size[1],
-            .x = self.pos[0],
-            .y = self.pos[1],
-        };
-        _ = rlui.guiTextBox(rect, self.text_memory.ptr, 82, false);
+    pub fn cStr(self: *Self) [*:0]u8 {
+        return self.buffor.ptr;
     }
 };
