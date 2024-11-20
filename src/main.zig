@@ -159,8 +159,12 @@ fn simulation_warmup() !void {
 }
 
 pub fn main() !void {
-    std.debug.print("Hello World!\n", .{});
-    try simulation_warmup();
+    // std.debug.print("Hello World!\n", .{});
+    // try simulation_warmup();
+
+    const tmp_impor = @import("modules/TypingMotion.zig");
+
+    tmp_impor.log_test();
 }
 
 test {
