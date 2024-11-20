@@ -11,7 +11,7 @@ const Vec2i = @import("_math.zig").Vec2i;
 const THEME = @import("_circle.zig").THEME;
 
 const TextInputModule = @import("modules/TextInputModule.zig");
-const TxtEditor = TextInputModule.AlfanumericBufforEditor;
+const TxtEditor = TextInputModule.TextEditor;
 
 fn createNCircles(comptime n: usize) [n]Circle {
     const result: [n]Circle = .{Circle{}} ** n;
@@ -41,7 +41,7 @@ const KbKey = InputModule.KbKey;
 
 fn KBSignals(comptime n: usize, key_enums: [n]rl.KeyboardKey) ![n]KbKey {
     var holds: [n]KbKey = undefined;
-    for (key_enums, 0..) |key, i| holds[i] = KbKey.inst(key);
+    for (key_enums, 0..) |key, i| holds[i] = KbKey.init(key);
     return holds;
 }
 
@@ -103,20 +103,19 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     var life_time_ms: f64 = 0;
 
-    var exit_key = KbKey.esc_hold();
+    var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
     while (exit_signal.get() == false) {
         // exit_key.check_input();
+        const delta_ms = try tmln.tickMs();
+        life_time_ms += @floatCast(delta_ms);
 
-        for (&letter_keys) |*key_from_kb| key_from_kb.check_input();
-        for (&kb_keys) |*key_from_kb| key_from_kb.check_input();
+        for (&letter_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
+        for (&kb_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
         for (&cirlce_arr) |*circle| circle.update();
 
-        const time_delta_ms = try tmln.tickMs();
-        life_time_ms += @floatCast(time_delta_ms);
-
-        for (&osc_arr) |*osc| osc.update(time_delta_ms);
-        txt_editor.collectInput(&letter_keys, time_delta_ms);
+        for (&osc_arr) |*osc| osc.update(delta_ms);
+        txt_editor.collectInput(&letter_keys, delta_ms);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -124,7 +123,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         rl.clearBackground(THEME[0]);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
-        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{time_delta_ms});
+        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
         defer text_alloc.free(info);
 
         // std.debug.print(info_template, .{time_delta_ms});

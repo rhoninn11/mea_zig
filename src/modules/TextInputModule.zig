@@ -9,34 +9,50 @@ const KbKey = InputModule.KbKey;
 
 const TimeLock = @import("../_time.zig").TimeLock;
 
-pub const AlfanumericBufforEditor = struct {
+const TextBuffor = struct {
     const Self = @This();
-
-    rate_limiter: TimeLock = TimeLock{},
     buffor: [:0]u8,
     char_num: u16,
     line_num: u16,
 
-    pub fn spawn(arena: Allocator) !Self {
-        const buffor = try arena.allocSentinel(u8, 1000, 0);
-        buffor[0] = 0;
-        return AlfanumericBufforEditor{
-            .buffor = buffor,
+    pub fn init(arena: Allocator) !Self {
+        const buf = try arena.allocSentinel(u8, 1000, 0);
+        @memset(buf, 0);
+        return TextBuffor{
+            .buffor = buf,
             .char_num = 0,
             .line_num = 0,
         };
     }
+    pub fn addNewLine(self: *Self) void {
+        self.buffor[self.char_num] = '\n';
+        self.char_num += 1;
+        self.line_num += 1;
+    }
 
-    fn addCharacter(self: *Self, char: u8) void {
+    pub fn addCharacter(self: *Self, char: u8) void {
         self.buffor[self.char_num] = char;
         self.char_num += 1;
 
-        if ((self.char_num - self.line_num) % 20 == 0) {
-            self.buffor[self.char_num] = '\n';
-            self.char_num += 1;
-            self.line_num += 1;
-        }
-        self.buffor[self.char_num] = 0;
+        if ((self.char_num - self.line_num) % 20 == 0) self.addNewLine();
+    }
+
+    pub fn cStr(self: *Self) [*:0]u8 {
+        return self.buffor.ptr;
+    }
+};
+
+pub const TextEditor = struct {
+    const Self = @This();
+
+    rate_limiter: TimeLock = TimeLock{},
+    text: TextBuffor,
+
+    pub fn spawn(arena: Allocator) !Self {
+        const txt = try TextBuffor.init(arena);
+        return TextEditor{
+            .text = txt,
+        };
     }
 
     pub fn collectInput(self: *Self, keys: []KbKey, dt_ms: f32) void {
@@ -45,7 +61,7 @@ pub const AlfanumericBufforEditor = struct {
 
         over_keys: for (keys) |key| {
             if (key.hold.base.get()) {
-                self.addCharacter(key.hold.decode());
+                self.text.addCharacter(key.hold.decode());
                 self.rate_limiter.arm();
                 break :over_keys;
             }
@@ -53,6 +69,6 @@ pub const AlfanumericBufforEditor = struct {
     }
 
     pub fn cStr(self: *Self) [*:0]u8 {
-        return self.buffor.ptr;
+        return self.text.cStr();
     }
 };
