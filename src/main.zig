@@ -158,9 +158,16 @@ fn simulation_warmup() !void {
     try simulation(fmt_alloc, arena);
 }
 
+const Prompt = struct {
+    prompt: []u8,
+};
+
 pub fn main() !void {
-    std.debug.print("Hello World!\n", .{});
-    try simulation_warmup();
+    // std.debug.print("Hello World!\n", .{});
+    // try simulation_warmup();
+
+    const explore_fn = @import("explore/filesystem.zig").fs_explorer;
+    try explore_fn();
 }
 
 test {
