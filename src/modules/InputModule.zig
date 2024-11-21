@@ -1,6 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
-const TypingMotion = @import("TypingMotion.zig");
+const TypingMotion = @import("TypingMotion.zig").TypingMotion;
 
 pub const Signal = struct {
     pub const EdgeType = enum {

@@ -28,14 +28,12 @@ pub const TypingMotion = struct {
     }
 
     pub fn _x_th_offset(self: *Self) f32 {
-        const emit_num_f: f32 = @as(f32, @floatFromInt(self.emited_num - 1));
+        const emit_num_f: f32 = @as(f32, @floatFromInt(self.emited_num - 2));
         const time_offset: f32 = Self._2_nd_ms + emit_num_f * Self._x_th_ms;
         return time_offset;
     }
 
     fn _process(self: *Self) CollectMode {
-        log_state(self);
-
         var next_state = self.state;
         switch (self.state) {
             CollectMode.first_activation => {
@@ -78,33 +76,6 @@ pub const TypingMotion = struct {
     }
 };
 
-fn log_state(self: *TypingMotion) void {
-    switch (self.state) {
-        CollectMode.first_activation => std.log.debug("a\n", .{}),
-        CollectMode.next_activation => std.log.debug("b\n", .{}),
-        else => unreachable,
-    }
-}
-
-pub fn log_test() void {
-    var motion = TypingMotion{};
-    var sig = Signal{};
-
-    std.log.debug("+++ ile zebrało {} {}", .{ motion.collect(), motion.state });
-    sig.set(true);
-    motion.update(&sig, 10);
-    std.log.debug("+++ ile zebrało {} {}", .{ motion.collect(), motion.state });
-
-    motion.update(&sig, TypingMotion._2_nd_ms);
-    std.log.debug("+++ ile zebrało {} {}", .{ motion.collect(), motion.state });
-    motion.update(&sig, TypingMotion._x_th_ms);
-    std.log.debug("+++ ile zebrało {} {}", .{ motion.collect(), motion.state });
-
-    sig.set(false);
-    motion.update(&sig, TypingMotion._x_th_ms);
-    std.log.debug("+++ ile zebrało {} {}", .{ motion.collect(), motion.state });
-}
-
 test "typing motion test" {
     var motion = TypingMotion{};
     var sig = Signal{};
@@ -114,13 +85,16 @@ test "typing motion test" {
     try std.testing.expectEqual(CollectMode.first_activation, motion.state);
     try std.testing.expectEqual(1, motion.collect());
 
+    sig.set(true);
     motion.update(&sig, TypingMotion._2_nd_ms);
     try std.testing.expectEqual(CollectMode.next_activation, motion.state);
     try std.testing.expectEqual(1, motion.collect());
 
+    sig.set(true);
     motion.update(&sig, TypingMotion._x_th_ms);
     try std.testing.expectEqual(1, motion.collect());
 
+    sig.set(true);
     motion.update(&sig, TypingMotion._x_th_ms);
     try std.testing.expectEqual(1, motion.collect());
 
