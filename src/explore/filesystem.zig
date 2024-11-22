@@ -23,16 +23,40 @@ test "how to spliting works" {
     }
 }
 
+fn ensurePath(path: []const u8) !void {
+    const dirname_for = std.fs.path.dirname(path) orelse ".";
+    std.debug.print("+++ dirname part is {s}\n", .{dirname_for});
+    try std.fs.cwd().makePath(dirname_for);
+}
+
+test "path ensure test" {
+    // tylko nie wiem jak sprawdzać czy plik istniej xD
+}
+
+const SimpleData = struct {
+    name: []const u8,
+};
+
 pub fn fs_explorer() !void {
-    const dir = "fs";
-    try std.fs.cwd().makePath(dir);
+    try jsonCreateAndSave();
+}
 
-    const dir_ = "fs/fs_1/fs_2/fs_3";
-    const dir_1 = "fs/fs_1/c/file.json";
-    try std.fs.cwd().makePath(dir_);
-    try std.fs.cwd().makePath(dir_1);
+fn jsonCreateAndSave() !void {
+    const first_json = "fs/deeper/file.json";
+    try ensurePath(first_json);
+    const file = try std.fs.cwd().createFile(first_json, Flags{ .read = true });
+    defer file.close();
 
-    const file_name: []const u8 = "fs/idono.json";
-    _ = try std.fs.cwd().createFile(file_name, Flags{ .read = true });
-    std.debug.print("+++ file {s} create\n", .{file_name});
+    std.debug.print("+++ file {s} create\n", .{first_json});
+
+    const val = SimpleData{ .name = "adam grzelok" };
+
+    const p_alloc = std.heap.page_allocator;
+    const jstr_memory = try std.json.stringifyAlloc(p_alloc, val, .{});
+    defer p_alloc.free(jstr_memory);
+
+    std.debug.print("+++ result json string is {s}\n", .{jstr_memory});
+
+    const res = try file.write(jstr_memory);
+    std.debug.print("+++ what information is that {}\n", .{res});
 }
