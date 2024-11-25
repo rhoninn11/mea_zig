@@ -15,8 +15,10 @@ fn projFile(alloc: Allocator, path: []const u8) ![]u8 {
     defer alloc.free(src_path);
     const dst_path = try std.fmt.allocPrint(alloc, "fs/{s}", .{path});
 
-    try ensurePath(dst_path);
-    try std.fs.cwd().copyFile(src_path, std.fs.cwd(), dst_path, CopyFileOptions{});
+    std.fs.cwd().access(dst_path, OpenFlags{}) catch {
+        try ensurePath(dst_path);
+        try std.fs.cwd().copyFile(src_path, std.fs.cwd(), dst_path, CopyFileOptions{});
+    };
 
     return dst_path;
 }
@@ -73,6 +75,20 @@ fn jsonCreateAndSave() !void {
     std.debug.print("+++ what information is that {}\n", .{res});
 }
 
+const ser = @import("serialization.zig");
+
+fn promptFromJson() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
+
+    const prompt_file = try projFile(alloc, "prompt.json");
+    defer alloc.free(prompt_file);
+
+    try ser.openPrompt(alloc, prompt_file);
+}
+
 pub fn fs_explorer() !void {
     try jsonCreateAndSave();
+    try promptFromJson();
 }
