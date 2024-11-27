@@ -1,7 +1,6 @@
 const rl = @import("raylib");
 const std = @import("std");
 
-const Vec2i = @import("_math.zig").Vec2i;
 const Osc = @import("_osc.zig").Osc;
 
 const Signal = @import("modules/InputModule.zig").Signal;
@@ -15,26 +14,33 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
+const vi2 = @import("_math.zig").vi2;
+
 pub const Circle = struct {
     const Self = @This();
 
-    pos: Vec2i = .{ .x = 100, .y = 100 },
+    pos: vi2 = .{ 0, 0 },
     color: rl.Color = rl.Color.maroon,
     height: i32 = 100,
     sig: ?*Signal = null,
 
+    pub fn setPos(self: *Self, new_pos: vi2) void {
+        self.pos = new_pos;
+    }
+
     pub fn draw(self: Self, osc: Osc) void {
-        const osc_pos = Vec2i{
-            .x = @intFromFloat(std.math.cos(osc.phase) * osc.amp),
-            .y = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2),
-        };
-        const circle_pos = self.pos.add(osc_pos);
-        const shadow_pos = Vec2i{
-            .x = circle_pos.x,
-            .y = self.pos.y + self.height,
-        };
-        rl.drawCircle(circle_pos.x, circle_pos.y, 20, self.color);
-        rl.drawEllipse(shadow_pos.x, shadow_pos.y, 30, 5, THEME[1]);
+        const x: i32 = @intFromFloat(std.math.cos(osc.phase) * osc.amp);
+        const y: i32 = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2);
+        const osc_pos = vi2{ x, y };
+
+        const circle_pos = self.pos + osc_pos;
+        var shadow_pos = self.pos + vi2{ 0, self.height };
+
+        const mask = vi2{ 1, 0 };
+        shadow_pos += osc_pos * mask;
+
+        rl.drawCircle(circle_pos[0], circle_pos[1], 20, self.color);
+        rl.drawEllipse(shadow_pos[0], shadow_pos[1], 25, 5, THEME[1]);
     }
 
     pub fn update(self: *Self) void {

@@ -55,6 +55,8 @@ fn WireSignals(comptime n: usize, sig_arr: *[n]*Signal, circle_arr: *[n]Circle) 
     for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
+const vi2 = @import("_math.zig").vi2;
+
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
     const screenHeight = 450;
@@ -85,17 +87,17 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var txt_editor = try TxtEditor.spawn(arena);
 
     const num = @as(u32, n);
-    const init_pos = Vec2i{
-        .x = 100,
-        .y = 100,
-    };
+
+    const first_spot = vi2{ 100, 100 };
+    const offset = 100;
 
     for (0..n) |i| {
         const idx: u32 = @intCast(i);
         const progress = calcProgres(idx, num, true);
+        const local_offset = offset * u2i(idx);
+        const delta = vi2{ local_offset, 0 };
 
-        const inst_x = init_pos.x + u2i(idx) * 100;
-        cirlce_arr[i].pos = Vec2i{ .x = inst_x, .y = init_pos.y };
+        cirlce_arr[i].setPos(first_spot + delta);
 
         const phase = progress * 0.5;
         osc_arr[i].phase = phase;
@@ -163,11 +165,11 @@ const Prompt = struct {
 };
 
 pub fn main() !void {
-    // std.debug.print("Hello World!\n", .{});
-    // try simulation_warmup();
+    std.debug.print("Hello World!\n", .{});
+    try simulation_warmup();
 
-    const explore_fn = @import("explore/filesystem.zig").fs_explorer;
-    try explore_fn();
+    // const explore_fn = @import("explore/filesystem.zig").fs_explorer;
+    // try explore_fn();
 }
 
 test {
