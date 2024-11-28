@@ -3,14 +3,14 @@ const rl = @import("raylib");
 const rlui = @import("raygui");
 
 const Allocator = std.mem.Allocator;
-const Timeline = @import("_time.zig").Timeline;
+const Timeline = @import("mods/time.zig").Timeline;
 
-const Circle = @import("_circle.zig").Circle;
-const Osc = @import("_osc.zig").Osc;
-const Vec2i = @import("_math.zig").Vec2i;
-const THEME = @import("_circle.zig").THEME;
+const Circle = @import("mods/circle.zig").Circle;
+const Osc = @import("mods/osc.zig").Osc;
+const Vec2i = @import("mods/math.zig").Vec2i;
+const THEME = @import("mods/circle.zig").THEME;
 
-const TextInputModule = @import("modules/TextInputModule.zig");
+const TextInputModule = @import("mods/TextInputModule.zig");
 const TxtEditor = TextInputModule.TextEditor;
 
 fn createNCircles(comptime n: usize) [n]Circle {
@@ -23,19 +23,7 @@ fn createNOsc(comptime n: usize) [n]Osc {
     return result;
 }
 
-fn u2f(a: u32) f32 {
-    return @as(f32, @floatFromInt(a));
-}
-
-fn u2i(a: u32) i32 {
-    return @as(i32, @intCast(a));
-}
-
-fn calcProgres(i: u32, n: u32, closed: bool) f32 {
-    const dol = if (closed) n - 1 else n;
-    return u2f(i) / u2f(dol);
-}
-const InputModule = @import("modules/InputModule.zig");
+const InputModule = @import("mods/InputModule.zig");
 const Signal = InputModule.Signal;
 const KbKey = InputModule.KbKey;
 
@@ -55,7 +43,31 @@ fn WireSignals(comptime n: usize, sig_arr: *[n]*Signal, circle_arr: *[n]Circle) 
     for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
-const vi2 = @import("_math.zig").vi2;
+const math = @import("mods/math.zig");
+const u2i = math.u2i;
+const u2f = math.u2f;
+const f2i = math.f2i;
+const calcProgress = math.calcProgres;
+
+const vi2 = math.vi2;
+const vf2 = math.vf2;
+
+const Space = struct {
+    a: vf2 = @splat(0),
+    b: vf2 = @splat(0),
+
+    fn sample(self: Space, cords: f32) vf2 {
+        const fac: vf2 = @splat(1 - cords);
+        const rest: vf2 = @splat(cords);
+
+        return self.a * fac + self.b * rest;
+    }
+
+    fn sample_i(self: Space, cords: f32) vi2 {
+        const f_val = self.sample(cords);
+        return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
+    }
+};
 
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
@@ -79,6 +91,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var sig_arr = ExtractSignals(n, &kb_keys);
 
     WireSignals(n, &sig_arr, &cirlce_arr);
+    const elo = cirlce_arr[0..n];
+    _ = elo;
 
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
@@ -88,16 +102,20 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     const num = @as(u32, n);
 
-    const first_spot = vi2{ 100, 100 };
-    const offset = 100;
+    const spot_a: vi2 = @splat(100);
+    const spot_b: vi2 = @splat(344);
+
+    const spc = Space{
+        .a = spot_a,
+        .b = spot_b,
+    };
 
     for (0..n) |i| {
         const idx: u32 = @intCast(i);
-        const progress = calcProgres(idx, num, true);
-        const local_offset = offset * u2i(idx);
-        const delta = vi2{ local_offset, 0 };
+        const progress = calcProgress(idx, num, true);
 
-        cirlce_arr[i].setPos(first_spot + delta);
+        const spot = spc.sample_i(progress);
+        cirlce_arr[i].setPos(spot);
 
         const phase = progress * 0.5;
         osc_arr[i].phase = phase;

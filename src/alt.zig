@@ -1,7 +1,7 @@
 const std = @import("std");
 const zigimg = @import("zigimg");
 
-const s_img = @import("simple_img.zig");
+const s_img = @import("mods/img.zig");
 
 fn simple_memory_scribes(my_alloc: std.mem.Allocator) !void {
     const buffer_1 = try my_alloc.alloc(u8, 128);

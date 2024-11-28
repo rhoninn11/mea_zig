@@ -1,9 +1,9 @@
 const rl = @import("raylib");
 const std = @import("std");
 
-const Osc = @import("_osc.zig").Osc;
+const Osc = @import("osc.zig").Osc;
 
-const Signal = @import("modules/InputModule.zig").Signal;
+const Signal = @import("InputModule.zig").Signal;
 
 pub const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
 
@@ -14,7 +14,7 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
-const vi2 = @import("_math.zig").vi2;
+const vi2 = @import("math.zig").vi2;
 
 pub const Circle = struct {
     const Self = @This();
@@ -29,7 +29,7 @@ pub const Circle = struct {
     }
 
     pub fn draw(self: Self, osc: Osc) void {
-        const x: i32 = @intFromFloat(std.math.cos(osc.phase) * osc.amp);
+        const x: i32 = @intFromFloat(std.math.cos(osc.phase) * osc.amp * 2.22);
         const y: i32 = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2);
         const osc_pos = vi2{ x, y };
 

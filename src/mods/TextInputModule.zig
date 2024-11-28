@@ -7,7 +7,7 @@ const rl = @import("raylib");
 const InputModule = @import("InputModule.zig");
 const KbKey = InputModule.KbKey;
 
-const TimeLock = @import("../_time.zig").TimeLock;
+const TimeLock = @import("time.zig").TimeLock;
 
 const TextBuffor = struct {
     const Self = @This();
