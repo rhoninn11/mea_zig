@@ -47,25 +47,47 @@ const math = @import("mods/math.zig");
 const u2i = math.u2i;
 const u2f = math.u2f;
 const f2i = math.f2i;
+const i2f = math.i2f;
 const calcProgress = math.calcProgres;
 
 const vi2 = math.vi2;
 const vf2 = math.vf2;
 
-const Space = struct {
+const LinSpace = struct {
     a: vf2 = @splat(0),
     b: vf2 = @splat(0),
 
-    fn sample(self: Space, cords: f32) vf2 {
+    fn sample(self: LinSpace, cords: f32) vf2 {
         const fac: vf2 = @splat(1 - cords);
         const rest: vf2 = @splat(cords);
 
         return self.a * fac + self.b * rest;
     }
 
-    fn sample_i(self: Space, cords: f32) vi2 {
+    fn sample_i(self: LinSpace, cords: f32) vi2 {
         const f_val = self.sample(cords);
         return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
+    }
+};
+
+const Sim = struct {
+    const Self = @This();
+    crcls: []Circle,
+    oscs: []Osc,
+    prog: []f32,
+
+    fn sample_phase(self: Self) void {
+        for (self.prog, self.oscs) |prog, *osc| {
+            const phase = prog * 0.5;
+            osc.phase = phase;
+        }
+    }
+
+    fn sample_circles(self: Self, lin_space: LinSpace) void {
+        for (self.prog, self.crcls) |prog, *circle| {
+            const spot = lin_space.sample_i(prog);
+            circle.setPos(spot);
+        }
     }
 };
 
@@ -105,21 +127,26 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const spot_a: vi2 = @splat(100);
     const spot_b: vi2 = @splat(344);
 
-    const spc = Space{
+    var spc = LinSpace{
         .a = spot_a,
         .b = spot_b,
     };
 
+    var prog_arr: [n]f32 = undefined;
+
     for (0..n) |i| {
         const idx: u32 = @intCast(i);
-        const progress = calcProgress(idx, num, true);
-
-        const spot = spc.sample_i(progress);
-        cirlce_arr[i].setPos(spot);
-
-        const phase = progress * 0.5;
-        osc_arr[i].phase = phase;
+        prog_arr[i] = calcProgress(idx, num, true);
     }
+
+    const my_sim = Sim{
+        .crcls = cirlce_arr[0..n],
+        .oscs = osc_arr[0..n],
+        .prog = prog_arr[0..n],
+    };
+
+    my_sim.sample_phase();
+    my_sim.sample_circles(spc);
 
     var life_time_ms: f64 = 0;
 
@@ -148,6 +175,10 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         const m_info_template: []const u8 = "Mouse posiotion {d:.3}, {d:.3}\n";
         const m_info = try std.fmt.allocPrintZ(text_alloc, m_info_template, .{ mx, my });
         defer text_alloc.free(m_info);
+
+        const point_by_mouse = vf2{ i2f(mx), i2f(my) };
+        spc.b = point_by_mouse;
+        my_sim.sample_circles(spc);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});

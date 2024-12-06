@@ -1,6 +1,10 @@
 pub const vi2 = @Vector(2, i32);
 pub const vf2 = @Vector(2, f32);
 
+pub fn i2f(a: i32) f32 {
+    return @as(f32, @floatFromInt(a));
+}
+
 pub fn u2f(a: u32) f32 {
     return @as(f32, @floatFromInt(a));
 }
