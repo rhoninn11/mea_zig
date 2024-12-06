@@ -87,8 +87,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var osc_arr = createNOsc(n);
     const action_letters = "qwert";
     const keys = InputModule.find_input_keys(action_letters, n);
-    var kb_keys = InputModule.KbSignals(&keys, action_letters, n);
-    var sig_arr = ExtractSignals(n, &kb_keys);
+    var skill_keys = InputModule.KbSignals(&keys, action_letters, n);
+    var sig_arr = ExtractSignals(n, &skill_keys);
 
     WireSignals(n, &sig_arr, &cirlce_arr);
     const elo = cirlce_arr[0..n];
@@ -131,7 +131,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         life_time_ms += @floatCast(delta_ms);
 
         for (&letter_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
-        for (&kb_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
+        for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
         for (&cirlce_arr) |*circle| circle.update();
 
         for (&osc_arr) |*osc| osc.update(delta_ms);
@@ -142,11 +142,19 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         rl.clearBackground(THEME[0]);
 
+        const mx = rl.getMouseX();
+        const my = rl.getMouseY();
+
+        const m_info_template: []const u8 = "Mouse posiotion {d:.3}, {d:.3}\n";
+        const m_info = try std.fmt.allocPrintZ(text_alloc, m_info_template, .{ mx, my });
+        defer text_alloc.free(m_info);
+
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
         defer text_alloc.free(info);
 
         // std.debug.print(info_template, .{time_delta_ms});
+        rl.drawText(m_info, 50, 10, 20, THEME[1]);
         rl.drawText(info, 50, 50, 20, THEME[1]);
         rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
         for (cirlce_arr, osc_arr) |this_circle, that_osc| {
