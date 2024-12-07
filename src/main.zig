@@ -70,7 +70,7 @@ const LinSpace = struct {
     }
 };
 
-const Sim = struct {
+const SpaceSim = struct {
     const Self = @This();
     crcls: []Circle,
     oscs: []Osc,
@@ -90,6 +90,32 @@ const Sim = struct {
         }
     }
 };
+
+const Inertia = struct {
+    const Self = Inertia;
+    target: vf2,
+    pos: vf2,
+
+    fn setTarget(self: *Self, new_target: vf2) void {
+        self.target = new_target;
+    }
+
+    fn simulate(self: *Self) void {
+        self.pos = self.target;
+    }
+
+    fn getPos(self: *Self) vf2 {
+        return self.pos;
+    }
+};
+
+fn sample_mouse() vf2 {
+    const mx = rl.getMouseX();
+    const my = rl.getMouseY();
+
+    const point_by_mouse = vf2{ i2f(mx), i2f(my) };
+    return point_by_mouse;
+}
 
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
@@ -139,7 +165,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         prog_arr[i] = calcProgress(idx, num, true);
     }
 
-    const my_sim = Sim{
+    const my_sim = SpaceSim{
         .crcls = cirlce_arr[0..n],
         .oscs = osc_arr[0..n],
         .prog = prog_arr[0..n],
@@ -149,6 +175,10 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     my_sim.sample_circles(spc);
 
     var life_time_ms: f64 = 0;
+    var inertia = Inertia{
+        .target = @splat(0),
+        .pos = @splat(0),
+    };
 
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
@@ -169,16 +199,17 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         rl.clearBackground(THEME[0]);
 
-        const mx = rl.getMouseX();
-        const my = rl.getMouseY();
+        const m_pos = sample_mouse();
 
         const m_info_template: []const u8 = "Mouse posiotion {d:.3}, {d:.3}\n";
-        const m_info = try std.fmt.allocPrintZ(text_alloc, m_info_template, .{ mx, my });
+        const m_info = try std.fmt.allocPrintZ(text_alloc, m_info_template, .{ m_pos[0], m_pos[1] });
         defer text_alloc.free(m_info);
 
-        const point_by_mouse = vf2{ i2f(mx), i2f(my) };
-        spc.b = point_by_mouse;
+        inertia.setTarget(m_pos);
+        inertia.simulate();
+        spc.b = inertia.getPos();
         my_sim.sample_circles(spc);
+        rl.drawRectangle(f2i(m_pos[0]) - 25, f2i(m_pos[1]) - 25, 50, 50, rl.Color.dark_green);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
