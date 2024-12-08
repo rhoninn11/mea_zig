@@ -133,12 +133,13 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     var cirlce_arr = createNCircles(n);
     var osc_arr = createNOsc(n);
+
     const action_letters = "qwert";
     const keys = InputModule.find_input_keys(action_letters, n);
     var skill_keys = InputModule.KbSignals(&keys, action_letters, n);
-    var sig_arr = ExtractSignals(n, &skill_keys);
+    var skill_signals = ExtractSignals(n, &skill_keys);
 
-    WireSignals(n, &sig_arr, &cirlce_arr);
+    WireSignals(n, &skill_signals, &cirlce_arr);
     const elo = cirlce_arr[0..n];
     _ = elo;
 
@@ -199,24 +200,23 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         rl.clearBackground(THEME[0]);
 
-        const m_pos = sample_mouse();
-
-        const m_info_template: []const u8 = "Mouse posiotion {d:.3}, {d:.3}\n";
-        const m_info = try std.fmt.allocPrintZ(text_alloc, m_info_template, .{ m_pos[0], m_pos[1] });
-        defer text_alloc.free(m_info);
-
-        inertia.setTarget(m_pos);
+        if (skill_signals[0].get()) {
+            const m_pos = sample_mouse();
+            inertia.setTarget(m_pos);
+        }
         inertia.simulate();
-        spc.b = inertia.getPos();
+        const sim_pos = inertia.getPos();
+
+        spc.b = sim_pos;
         my_sim.sample_circles(spc);
-        rl.drawRectangle(f2i(m_pos[0]) - 25, f2i(m_pos[1]) - 25, 50, 50, rl.Color.dark_green);
+
+        rl.drawRectangle(f2i(sim_pos[0]) - 25, f2i(sim_pos[1]) - 25, 50, 50, rl.Color.dark_green);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
         defer text_alloc.free(info);
 
         // std.debug.print(info_template, .{time_delta_ms});
-        rl.drawText(m_info, 50, 10, 20, THEME[1]);
         rl.drawText(info, 50, 50, 20, THEME[1]);
         rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
         for (cirlce_arr, osc_arr) |this_circle, that_osc| {
