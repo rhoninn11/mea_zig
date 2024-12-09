@@ -89,6 +89,12 @@ const SpaceSim = struct {
             circle.setPos(spot);
         }
     }
+
+    fn draw(self: Self) void {
+        for (self.crcls, self.oscs) |this_circle, that_osc| {
+            this_circle.draw(that_osc);
+        }
+    }
 };
 
 const Inertia = struct {
@@ -138,18 +144,13 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const keys = InputModule.find_input_keys(action_letters, n);
     var skill_keys = InputModule.KbSignals(&keys, action_letters, n);
     var skill_signals = ExtractSignals(n, &skill_keys);
-
     WireSignals(n, &skill_signals, &cirlce_arr);
-    const elo = cirlce_arr[0..n];
-    _ = elo;
 
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
     const letter_enums = InputModule.find_input_keys(letters, n_letters);
     var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
     var txt_editor = try TxtEditor.spawn(arena);
-
-    const num = @as(u32, n);
 
     const spot_a: vi2 = @splat(100);
     const spot_b: vi2 = @splat(344);
@@ -160,10 +161,14 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     };
 
     var prog_arr: [n]f32 = undefined;
-
-    for (0..n) |i| {
-        const idx: u32 = @intCast(i);
-        prog_arr[i] = calcProgress(idx, num, true);
+    var prog_arr_trim: [n]f32 = undefined;
+    {
+        const nu32 = @as(u32, n);
+        for (0..prog_arr.len) |i| {
+            const idx: u32 = @intCast(i);
+            prog_arr[i] = calcProgress(idx, nu32, true);
+        }
+        @memcpy(prog_arr_trim[0..n], prog_arr[0..n]);
     }
 
     const my_sim = SpaceSim{
@@ -219,9 +224,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
         rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
-        for (cirlce_arr, osc_arr) |this_circle, that_osc| {
-            this_circle.draw(that_osc);
-        }
+
+        my_sim.draw();
 
         const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
         _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
@@ -252,12 +256,24 @@ const Prompt = struct {
     prompt: []u8,
 };
 
-pub fn main() !void {
-    std.debug.print("Hello World!\n", .{});
-    try simulation_warmup();
+const examples = enum {
+    raylib,
+    jtinker,
+};
 
-    // const explore_fn = @import("explore/filesystem.zig").fs_explorer;
-    // try explore_fn();
+pub fn main() !void {
+    const selector: examples = .raylib;
+    switch (selector) {
+        .raylib => {
+            std.debug.print("raylib using zig!\n", .{});
+            try simulation_warmup();
+        },
+        .jtinker => {
+            const explore_fn = @import("explore/prompt.zig").fs_explorer;
+            std.debug.print("tinkering around a json!\n", .{});
+            try explore_fn();
+        },
+    }
 }
 
 test {
