@@ -65,16 +65,8 @@ pub fn add_zigimg(bld: *std.Build, cmp: *Compile, bld_opt: buildOptions) void {
     cmp.root_module.addImport("zigimg", zig_img.module("zigimg"));
 }
 
-pub fn app_build(b: *std.Build) !void {
-    // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
-    // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
-    const alt = b.option(bool, "alt", "+++ build alternative program") orelse false;
-
-    const file_main: []const u8 = "main.zig";
-    const file_alt: []const u8 = "alt.zig";
-
-    const src_file = if (alt) file_alt else file_main;
-    const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{src_file});
+pub fn local_app(b: *std.Build, main_file: []const u8) !void {
+    const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
     defer b.allocator.free(src_file_path);
 
     const bld_opts = build_options(b);
@@ -107,6 +99,45 @@ pub fn app_build(b: *std.Build) !void {
     const test_exe = b.addRunArtifact(my_tests);
     const test_step = b.step("test", "+++ run unit tests");
     test_step.dependOn(&test_exe.step);
+}
+
+fn wasm_lib(b: *std.Build, main_file: []const u8) !void {
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+    });
+
+    const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
+    const exe = b.addExecutable(.{
+        .name = "fns",
+        .root_source_file = b.path(src_file_path),
+        .target = target,
+        .optimize = .ReleaseSmall,
+    });
+
+    // <https://github.com/ziglang/zig/issues/8633>
+    exe.global_base = 6560;
+    exe.entry = .disabled;
+    exe.rdynamic = true;
+    exe.import_memory = true;
+    exe.stack_size = std.wasm.page_size;
+
+    exe.initial_memory = std.wasm.page_size * 2;
+    exe.max_memory = std.wasm.page_size * 2;
+
+    b.installArtifact(exe);
+}
+
+pub fn app_build(b: *std.Build) !void {
+    // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
+    // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
+    const alt = b.option(bool, "alt", "+++ build alternative program") orelse false;
+
+    if (!alt) {
+        try local_app(b, "main.zig");
+    } else {
+        try wasm_lib(b, "wasmfns.zig");
+    }
 }
 
 fn cpp_build_exp(b: *std.Build) !void {

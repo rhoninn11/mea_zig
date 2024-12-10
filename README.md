@@ -13,3 +13,6 @@ intall right zig version
 build proj
 clone zls
 checkout to right version
+
+zig build -Dalt --prefix web_demo/prebuilt
+python3 -m http.server

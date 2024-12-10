@@ -5,3 +5,5 @@ zig-out
 *tmp
 
 fs
+
+web_demo/prebuilt
