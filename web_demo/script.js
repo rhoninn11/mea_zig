@@ -8,8 +8,11 @@ var memory = new WebAssembly.Memory({
 
 const bridge = {
     env: {
-        consoleOutput: () => console.log("this is called from zig code"),
-        memory
+        memory,
+        consoleLog: (ptr, len) => {
+            const text = new TextDecoder().decode(new Uint8Array(memory.buffer, ptr, len));
+            console.log(text);
+        }
     }
 }
 
@@ -18,6 +21,9 @@ var file_hmm = fetch("prebuilt/bin/fns.wasm");
 
 WebAssembly.instantiateStreaming(file_hmm, bridge)
 .then((module) => {
-    const zig_fn = module.instance.exports.callFromVm;
-    zig_fn()
+    const callFromVm = module.instance.exports.callFromVm;
+    const vmLog = module.instance.exports.vmLog;
+
+    let reaction = new TextEncoder().encode("+++ Santa Clouse was touched reading words of that guy")
+    vmLog(reaction.buffer, reaction.byteLength);
 })
