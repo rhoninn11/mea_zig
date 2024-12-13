@@ -1,9 +1,19 @@
 
+run-app:
+	zig build run --prefix fs
 
+build-app:
+	zig build --prefix fs
 
-build:
-	zig build -Dalt --prefix web_demo/prebuilt
+build-web:
+	zig build -Dalt --prefix web_demo/public
 
-host:
-	cd web_demo && python3 -m http.server
+web-dev:
+	cd web_demo && npx vite
+
+web-dev-host:
+	cd web_demo && npx vite --host
+
+npm-install:
+	cd web_demo && npm install
 	
