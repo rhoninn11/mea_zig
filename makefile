@@ -1,19 +1,25 @@
 
+
+dev: zigBuildWeb jsWebLocal
+devDkr: zigBuildWeb jsWebHost
+
+	
+
 run-app:
 	zig build run --prefix fs
 
 build-app:
 	zig build --prefix fs
 
-build-web:
+zigBuildWeb:
 	zig build -Dalt --prefix web_demo/public
 
-web-dev:
+jsWebLocal:
 	cd web_demo && npx vite
 
-web-dev-host:
+jsWebHost:
 	cd web_demo && npx vite --host
 
 npm-install:
 	cd web_demo && npm install
-	
+

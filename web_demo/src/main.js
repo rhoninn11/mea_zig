@@ -14,4 +14,4 @@ document.querySelector('#app').innerHTML = `
 `
 
 setupCounter(document.querySelector('#counter'))
-import script_with_wasm from "./wasm_script.js"
+import script_with_wasm from "./lib/wasm_script.js"
