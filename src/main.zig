@@ -39,7 +39,7 @@ fn ExtractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
     return sig_arr;
 }
 
-fn WireSignals(comptime n: usize, sig_arr: *[n]*Signal, circle_arr: *[n]Circle) void {
+fn WireSignals(circle_arr: []Circle, sig_arr: []*Signal) void {
     for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
@@ -123,7 +123,12 @@ fn sample_mouse() vf2 {
     return point_by_mouse;
 }
 
+fn draw_grean_rectangle(spot: vi2) void {
+    rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, rl.Color.dark_green);
+}
+
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
+    _ = arena;
     const screenWidth = 800;
     const screenHeight = 450;
 
@@ -144,46 +149,49 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const keys = InputModule.find_input_keys(action_letters, n);
     var skill_keys = InputModule.KbSignals(&keys, action_letters, n);
     var skill_signals = ExtractSignals(n, &skill_keys);
-    WireSignals(n, &skill_signals, &cirlce_arr);
+    WireSignals(cirlce_arr[0..n], skill_signals[0..n]);
 
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
     const letter_enums = InputModule.find_input_keys(letters, n_letters);
     var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
-    var txt_editor = try TxtEditor.spawn(arena);
+    // var txt_editor = try TxtEditor.spawn(arena);
 
     const spot_a: vi2 = @splat(100);
     const spot_b: vi2 = @splat(344);
 
-    var spc = LinSpace{
+    var lin_spc = LinSpace{
         .a = spot_a,
         .b = spot_b,
     };
 
-    var prog_arr: [n]f32 = undefined;
-    var prog_arr_trim: [n]f32 = undefined;
+    var prog_arr: [n + 2]f32 = undefined;
     {
-        const nu32 = @as(u32, n);
-        for (0..prog_arr.len) |i| {
+        const nu32 = @as(u32, prog_arr.len);
+        for (0..nu32) |i| {
             const idx: u32 = @intCast(i);
             prog_arr[i] = calcProgress(idx, nu32, true);
         }
-        @memcpy(prog_arr_trim[0..n], prog_arr[0..n]);
     }
 
     const my_sim = SpaceSim{
         .crcls = cirlce_arr[0..n],
         .oscs = osc_arr[0..n],
-        .prog = prog_arr[0..n],
+        .prog = prog_arr[1 .. n + 1],
     };
 
     my_sim.sample_phase();
-    my_sim.sample_circles(spc);
+    my_sim.sample_circles(lin_spc);
 
     var life_time_ms: f64 = 0;
-    var inertia = Inertia{
-        .target = @splat(0),
-        .pos = @splat(0),
+    var inertia_start = Inertia{
+        .target = lin_spc.a,
+        .pos = lin_spc.b,
+    };
+
+    var inertia_end = Inertia{
+        .target = lin_spc.b,
+        .pos = lin_spc.b,
     };
 
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
@@ -198,7 +206,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         for (&cirlce_arr) |*circle| circle.update();
 
         for (&osc_arr) |*osc| osc.update(delta_ms);
-        txt_editor.collectInput(&letter_keys, delta_ms);
+
+        // txt_editor.collectInput(&letter_keys, delta_ms);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -206,16 +215,22 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         rl.clearBackground(THEME[0]);
 
         if (skill_signals[0].get()) {
-            const m_pos = sample_mouse();
-            inertia.setTarget(m_pos);
+            inertia_start.setTarget(sample_mouse());
+        } else if (skill_signals[1].get()) {
+            inertia_end.setTarget(sample_mouse());
         }
-        inertia.simulate();
-        const sim_pos = inertia.getPos();
 
-        spc.b = sim_pos;
-        my_sim.sample_circles(spc);
+        inertia_start.simulate();
+        inertia_end.simulate();
 
-        rl.drawRectangle(f2i(sim_pos[0]) - 25, f2i(sim_pos[1]) - 25, 50, 50, rl.Color.dark_green);
+        lin_spc.a = inertia_start.getPos();
+        lin_spc.b = inertia_end.getPos();
+        my_sim.sample_circles(lin_spc);
+
+        // start
+        draw_grean_rectangle(lin_spc.sample_i(0));
+        // end
+        draw_grean_rectangle(lin_spc.sample_i(1));
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
@@ -223,12 +238,12 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
+        // rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
 
         my_sim.draw();
 
-        const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
-        _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
+        // const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
+        // _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
     }
 }
 
