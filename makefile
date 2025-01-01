@@ -11,6 +11,9 @@ run-app:
 build-app:
 	zig build --prefix fs
 
+test-app:
+	zig build --prefix fs test
+
 zigBuildWeb:
 	zig build -Dalt --prefix web_demo/public
 

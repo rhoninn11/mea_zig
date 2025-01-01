@@ -127,6 +127,20 @@ fn draw_grean_rectangle(spot: vi2) void {
     rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, rl.Color.dark_green);
 }
 
+fn linProg(comptime num: usize) []f32 {
+    return linPogCalc: {
+        var prog_arr: [num + 2]f32 = undefined;
+        {
+            const nu32 = @as(u32, prog_arr.len);
+            for (0..nu32) |i| {
+                const idx: u32 = @intCast(i);
+                prog_arr[i] = calcProgress(idx, nu32, true);
+            }
+        }
+        break :linPogCalc prog_arr;
+    };
+}
+
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     _ = arena;
     const screenWidth = 800;
@@ -145,15 +159,17 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var cirlce_arr = createNCircles(n);
     var osc_arr = createNOsc(n);
 
-    const action_letters = "qwert";
-    const keys = InputModule.find_input_keys(action_letters, n);
-    var skill_keys = InputModule.KbSignals(&keys, action_letters, n);
+    const action_key = "qwert";
+    const action_len = action_key.len;
+    const keys = InputModule.find_key_mapping(action_key, action_len);
+
+    var skill_keys = InputModule.KbSignals(&keys, action_key, n);
     var skill_signals = ExtractSignals(n, &skill_keys);
     WireSignals(cirlce_arr[0..n], skill_signals[0..n]);
 
     const n_letters = 26;
     const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
-    const letter_enums = InputModule.find_input_keys(letters, n_letters);
+    const letter_enums = InputModule.find_key_mapping(letters, n_letters);
     var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
     // var txt_editor = try TxtEditor.spawn(arena);
 
@@ -165,19 +181,22 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         .b = spot_b,
     };
 
-    var prog_arr: [n + 2]f32 = undefined;
-    {
-        const nu32 = @as(u32, prog_arr.len);
-        for (0..nu32) |i| {
-            const idx: u32 = @intCast(i);
-            prog_arr[i] = calcProgress(idx, nu32, true);
+    var linSpace = linPogCalc: {
+        var prog_arr: [n + 2]f32 = undefined;
+        {
+            const nu32 = @as(u32, prog_arr.len);
+            for (0..nu32) |i| {
+                const idx: u32 = @intCast(i);
+                prog_arr[i] = calcProgress(idx, nu32, true);
+            }
         }
-    }
+        break :linPogCalc prog_arr;
+    };
 
     const my_sim = SpaceSim{
         .crcls = cirlce_arr[0..n],
         .oscs = osc_arr[0..n],
-        .prog = prog_arr[1 .. n + 1],
+        .prog = linSpace[1 .. n + 1],
     };
 
     my_sim.sample_phase();

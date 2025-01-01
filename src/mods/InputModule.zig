@@ -2,6 +2,8 @@ const std = @import("std");
 const rl = @import("raylib");
 const TypingMotion = @import("TypingMotion.zig").TypingMotion;
 
+const Module = @This();
+
 pub const Signal = struct {
     pub const EdgeType = enum {
         none,
@@ -95,7 +97,7 @@ test "just single key" {
     try std.testing.expect(tmp == result_b);
 }
 
-pub fn find_input_keys(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
+pub fn find_key_mapping(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
     const b = init: {
         var elo: [len]rl.KeyboardKey = undefined;
         for (chars_to_find, 0..) |char, i| {
@@ -112,7 +114,7 @@ test "find multiple keys" {
     const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
 
     // const char_keys: []const u8 = "qwer";
-    const found_keys: []const rl.KeyboardKey = &find_input_keys(chars, 4);
+    const found_keys: []const rl.KeyboardKey = &find_key_mapping(chars, 4);
 
     try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
 }
@@ -124,4 +126,11 @@ pub fn KbSignals(key_enums: []const rl.KeyboardKey, code_arr: []const u8, compti
     }
 
     return holds;
+}
+
+test "comptime len calc" {
+    const action_key: []const u8 = "qwert";
+    const action_len = action_key.len;
+    const mapping = Module.find_key_mapping(action_key, action_len);
+    try std.testing.expect(mapping.len == action_len);
 }
