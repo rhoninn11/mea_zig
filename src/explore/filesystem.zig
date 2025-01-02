@@ -49,6 +49,8 @@ test "proj_assets_check" {
 
     try root_dir.deleteFile(src_path);
     try root_dir.deleteFile(dst_path);
+
+    try std.testing.expect(false);
 }
 
 const SimpleData = struct {

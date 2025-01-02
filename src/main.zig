@@ -127,18 +127,13 @@ fn draw_grean_rectangle(spot: vi2) void {
     rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, rl.Color.dark_green);
 }
 
-fn linProg(comptime num: usize) []f32 {
-    return linPogCalc: {
-        var prog_arr: [num + 2]f32 = undefined;
-        {
-            const nu32 = @as(u32, prog_arr.len);
-            for (0..nu32) |i| {
-                const idx: u32 = @intCast(i);
-                prog_arr[i] = calcProgress(idx, nu32, true);
-            }
-        }
-        break :linPogCalc prog_arr;
-    };
+const spt = @import("spatial.zig");
+
+fn log_slice_info(slice: []f32) void {
+    std.debug.print("---\n", .{});
+    for (slice) |num_val| {
+        std.debug.print(" num value is: {d:.2}\n", .{num_val});
+    }
 }
 
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
@@ -193,11 +188,21 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         break :linPogCalc prog_arr;
     };
 
+    log_slice_info(&linSpace);
+
     const my_sim = SpaceSim{
         .crcls = cirlce_arr[0..n],
         .oscs = osc_arr[0..n],
         .prog = linSpace[1 .. n + 1],
     };
+
+    var new_lin_space = spt.linProg(spt.progOps{ .len = n });
+
+    std.debug.print("+++\n", .{});
+    log_slice_info(my_sim.prog);
+    log_slice_info(new_lin_space[0..n]);
+
+    std.debug.print("+++ quick check a {d} b {d} ", .{ my_sim.crcls.len, my_sim.prog.len });
 
     my_sim.sample_phase();
     my_sim.sample_circles(lin_spc);
