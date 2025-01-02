@@ -134,3 +134,13 @@ test "comptime len calc" {
     const mapping = Module.find_key_mapping(action_key, action_len);
     try std.testing.expect(mapping.len == action_len);
 }
+
+const math = @import("math.zig");
+const i2f = math.i2f;
+pub fn sample_mouse() math.vf2 {
+    const mx = rl.getMouseX();
+    const my = rl.getMouseY();
+
+    const point_by_mouse = math.vf2{ i2f(mx), i2f(my) };
+    return point_by_mouse;
+}

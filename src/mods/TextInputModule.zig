@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const rlui = @import("raygui");
 const rl = @import("raylib");
 
-const InputModule = @import("InputModule.zig");
+const InputModule = @import("input.zig");
 const KbKey = InputModule.KbKey;
 
 const TimeLock = @import("time.zig").TimeLock;

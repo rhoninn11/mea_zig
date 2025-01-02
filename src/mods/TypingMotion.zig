@@ -1,4 +1,4 @@
-const Signal = @import("InputModule.zig").Signal;
+const Signal = @import("input.zig").Signal;
 const EdgeType = Signal.EdgeType;
 const std = @import("std");
 

@@ -3,7 +3,7 @@ const std = @import("std");
 
 const Osc = @import("osc.zig").Osc;
 
-const Signal = @import("InputModule.zig").Signal;
+const Signal = @import("input.zig").Signal;
 
 pub const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
 
@@ -53,5 +53,10 @@ pub const Circle = struct {
             false => rl.Color.maroon,
             true => rl.Color.dark_purple,
         };
+    }
+
+    pub fn createN(comptime n: usize) [n]Self {
+        const result: [n]Self = .{Self{}} ** n;
+        return result;
     }
 };

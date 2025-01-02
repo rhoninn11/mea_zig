@@ -8,4 +8,9 @@ pub const Osc = struct {
         const delta_s = time_delta_ms / std.time.ms_per_s;
         self.phase += delta_s * std.math.pi * 2;
     }
+
+    pub fn createN(comptime n: usize) [n]Osc {
+        const result: [n]Osc = .{Osc{}} ** n;
+        return result;
+    }
 };

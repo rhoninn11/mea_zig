@@ -13,17 +13,7 @@ const THEME = @import("mods/circle.zig").THEME;
 const TextInputModule = @import("mods/TextInputModule.zig");
 const TxtEditor = TextInputModule.TextEditor;
 
-fn createNCircles(comptime n: usize) [n]Circle {
-    const result: [n]Circle = .{Circle{}} ** n;
-    return result;
-}
-
-fn createNOsc(comptime n: usize) [n]Osc {
-    const result: [n]Osc = .{Osc{}} ** n;
-    return result;
-}
-
-const InputModule = @import("mods/InputModule.zig");
+const InputModule = @import("mods/input.zig");
 const Signal = InputModule.Signal;
 const KbKey = InputModule.KbKey;
 
@@ -74,7 +64,7 @@ const SpaceSim = struct {
     const Self = @This();
     crcls: []Circle,
     oscs: []Osc,
-    prog: []f32,
+    prog: []const f32,
 
     fn sample_phase(self: Self) void {
         for (self.prog, self.oscs) |prog, *osc| {
@@ -102,6 +92,13 @@ const Inertia = struct {
     target: vf2,
     pos: vf2,
 
+    fn spawn(spot: vf2) Self {
+        return Inertia{
+            .target = spot,
+            .pos = spot,
+        };
+    }
+
     fn setTarget(self: *Self, new_target: vf2) void {
         self.target = new_target;
     }
@@ -115,16 +112,25 @@ const Inertia = struct {
     }
 };
 
-fn sample_mouse() vf2 {
-    const mx = rl.getMouseX();
-    const my = rl.getMouseY();
+const Slider = struct {
+    pos: u32 = 0,
+    max: u32 = 2,
+    min: u32 = 0,
 
-    const point_by_mouse = vf2{ i2f(mx), i2f(my) };
-    return point_by_mouse;
-}
+    fn up(sldr: *Slider) void {
+        if (sldr.pos != sldr.max) sldr.pos += 1;
+    }
 
-fn draw_grean_rectangle(spot: vi2) void {
-    rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, rl.Color.dark_green);
+    fn down(sldr: *Slider) void {
+        if (sldr.pos != sldr.min) sldr.pos -= 1;
+    }
+};
+
+const sample_mouse = @import("mods/input.zig").sample_mouse;
+
+fn draw_rectangle(spot: vi2, active: bool) void {
+    const defCol = if (active) rl.Color.yellow else rl.Color.dark_green;
+    rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, defCol);
 }
 
 const spt = @import("spatial.zig");
@@ -151,14 +157,14 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     const n = 5;
 
-    var cirlce_arr = createNCircles(n);
-    var osc_arr = createNOsc(n);
+    var cirlce_arr = Circle.createN(n);
+    var osc_arr = Osc.createN(n);
 
     const action_key = "qwert";
     const action_len = action_key.len;
     const keys = InputModule.find_key_mapping(action_key, action_len);
-
     var skill_keys = InputModule.KbSignals(&keys, action_key, n);
+
     var skill_signals = ExtractSignals(n, &skill_keys);
     WireSignals(cirlce_arr[0..n], skill_signals[0..n]);
 
@@ -175,51 +181,28 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         .a = spot_a,
         .b = spot_b,
     };
-
-    var linSpace = linPogCalc: {
-        var prog_arr: [n + 2]f32 = undefined;
-        {
-            const nu32 = @as(u32, prog_arr.len);
-            for (0..nu32) |i| {
-                const idx: u32 = @intCast(i);
-                prog_arr[i] = calcProgress(idx, nu32, true);
-            }
-        }
-        break :linPogCalc prog_arr;
-    };
-
-    log_slice_info(&linSpace);
-
+    const without_tips = spt.progOps{ .len = n, .first = false, .last = false };
+    const progress_marks: []const f32 = &spt.linProg(without_tips);
     const my_sim = SpaceSim{
         .crcls = cirlce_arr[0..n],
         .oscs = osc_arr[0..n],
-        .prog = linSpace[1 .. n + 1],
+        .prog = progress_marks,
     };
-
-    var new_lin_space = spt.linProg(spt.progOps{ .len = n });
-
-    std.debug.print("+++\n", .{});
-    log_slice_info(my_sim.prog);
-    log_slice_info(new_lin_space[0..n]);
-
-    std.debug.print("+++ quick check a {d} b {d} ", .{ my_sim.crcls.len, my_sim.prog.len });
 
     my_sim.sample_phase();
     my_sim.sample_circles(lin_spc);
 
     var life_time_ms: f64 = 0;
-    var inertia_start = Inertia{
-        .target = lin_spc.a,
-        .pos = lin_spc.b,
-    };
 
-    var inertia_end = Inertia{
-        .target = lin_spc.b,
-        .pos = lin_spc.b,
-    };
+    var inertia_start = Inertia.spawn(lin_spc.a);
+    var inertia_end = Inertia.spawn(lin_spc.b);
 
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
+
+    const inerts = &[_]*Inertia{ &inertia_start, &inertia_end };
+
+    var sldr = Slider{ .max = 1 };
     while (exit_signal.get() == false) {
         // exit_key.check_input();
         const delta_ms = try tmln.tickMs();
@@ -235,26 +218,28 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         rl.beginDrawing();
         defer rl.endDrawing();
-
         rl.clearBackground(THEME[0]);
 
-        if (skill_signals[0].get()) {
-            inertia_start.setTarget(sample_mouse());
-        } else if (skill_signals[1].get()) {
-            inertia_end.setTarget(sample_mouse());
+        if (skill_signals[2].get()) {
+            sldr.down();
+            // inertia_start.setTarget(sample_mouse());
+        } else if (skill_signals[3].get()) {
+            sldr.up();
+            // inertia_end.setTarget(sample_mouse());
         }
+
+        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(sample_mouse());
 
         inertia_start.simulate();
         inertia_end.simulate();
 
         lin_spc.a = inertia_start.getPos();
         lin_spc.b = inertia_end.getPos();
+
         my_sim.sample_circles(lin_spc);
 
-        // start
-        draw_grean_rectangle(lin_spc.sample_i(0));
-        // end
-        draw_grean_rectangle(lin_spc.sample_i(1));
+        draw_rectangle(lin_spc.sample_i(0), sldr.pos == 0);
+        draw_rectangle(lin_spc.sample_i(1), sldr.pos == 1);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
