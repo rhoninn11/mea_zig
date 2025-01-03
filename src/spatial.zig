@@ -47,3 +47,24 @@ test "linProg test" {
     try std.testing.expect(elo[0] > 0.99);
     try std.testing.expect(elo[9] < 0.99);
 }
+
+const f2i = math.vi2;
+const vi2 = math.vi2;
+const vf2 = math.vf2;
+
+pub const LinSpace = struct {
+    a: vf2 = @splat(0),
+    b: vf2 = @splat(0),
+
+    fn sample(self: LinSpace, cords: f32) vf2 {
+        const fac: vf2 = @splat(1 - cords);
+        const rest: vf2 = @splat(cords);
+
+        return self.a * fac + self.b * rest;
+    }
+
+    fn sample_i(self: LinSpace, cords: f32) vi2 {
+        const f_val = self.sample(cords);
+        return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
+    }
+};

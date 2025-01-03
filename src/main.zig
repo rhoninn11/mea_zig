@@ -42,23 +42,7 @@ const calcProgress = math.calcProgres;
 
 const vi2 = math.vi2;
 const vf2 = math.vf2;
-
-const LinSpace = struct {
-    a: vf2 = @splat(0),
-    b: vf2 = @splat(0),
-
-    fn sample(self: LinSpace, cords: f32) vf2 {
-        const fac: vf2 = @splat(1 - cords);
-        const rest: vf2 = @splat(cords);
-
-        return self.a * fac + self.b * rest;
-    }
-
-    fn sample_i(self: LinSpace, cords: f32) vi2 {
-        const f_val = self.sample(cords);
-        return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
-    }
-};
+const LinSpace = @import("spatial.zig").LinSpace;
 
 const SpaceSim = struct {
     const Self = @This();
@@ -68,7 +52,7 @@ const SpaceSim = struct {
 
     fn sample_phase(self: Self) void {
         for (self.prog, self.oscs) |prog, *osc| {
-            const phase = prog * 0.5;
+            const phase = prog * 6;
             osc.phase = phase;
         }
     }
@@ -89,22 +73,32 @@ const SpaceSim = struct {
 
 const Inertia = struct {
     const Self = Inertia;
-    target: vf2,
+    x: vf2,
     pos: vf2,
+    vel: vf2 = @splat(0),
+
+    next_x: vf2 = @splat(0),
+    next_pos: vf2 = @splat(0),
+    next_vel: vf2 = @splat(0),
 
     fn spawn(spot: vf2) Self {
         return Inertia{
-            .target = spot,
+            .x = spot,
             .pos = spot,
         };
     }
 
     fn setTarget(self: *Self, new_target: vf2) void {
-        self.target = new_target;
+        self.x = new_target;
     }
 
     fn simulate(self: *Self) void {
-        self.pos = self.target;
+        const td = 0.016; //example time delta
+
+        self.next_pos = self.pos + td * self.vel;
+        self.pos = self.x;
+
+        self.next_x = self.x;
     }
 
     fn getPos(self: *Self) vf2 {
@@ -156,9 +150,18 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     // rl.setTargetFPS(59);
 
     const n = 5;
+    const m = n + 6;
 
-    var cirlce_arr = Circle.createN(n);
-    var osc_arr = Osc.createN(n);
+    var cirlce_arr = Circle.createN(m);
+    var osc_arr = Osc.createN(m);
+
+    const without_tips = spt.progOps{ .len = m, .first = false, .last = false };
+    const progress_marks: []const f32 = &spt.linProg(without_tips);
+    const my_sim = SpaceSim{
+        .crcls = cirlce_arr[0..m],
+        .oscs = osc_arr[0..m],
+        .prog = progress_marks,
+    };
 
     const action_key = "qwert";
     const action_len = action_key.len;
@@ -180,13 +183,6 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var lin_spc = LinSpace{
         .a = spot_a,
         .b = spot_b,
-    };
-    const without_tips = spt.progOps{ .len = n, .first = false, .last = false };
-    const progress_marks: []const f32 = &spt.linProg(without_tips);
-    const my_sim = SpaceSim{
-        .crcls = cirlce_arr[0..n],
-        .oscs = osc_arr[0..n],
-        .prog = progress_marks,
     };
 
     my_sim.sample_phase();
@@ -220,23 +216,17 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         defer rl.endDrawing();
         rl.clearBackground(THEME[0]);
 
-        if (skill_signals[2].get()) {
-            sldr.down();
-            // inertia_start.setTarget(sample_mouse());
-        } else if (skill_signals[3].get()) {
-            sldr.up();
-            // inertia_end.setTarget(sample_mouse());
-        }
-
+        // selection and movement control
+        if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
         if (skill_signals[0].get()) inerts[sldr.pos].setTarget(sample_mouse());
 
-        inertia_start.simulate();
-        inertia_end.simulate();
+        for (inerts) |inertia_point| inertia_point.simulate();
 
-        lin_spc.a = inertia_start.getPos();
-        lin_spc.b = inertia_end.getPos();
+        lin_spc.a = inerts[0].getPos();
+        lin_spc.b = inerts[1].getPos();
 
         my_sim.sample_circles(lin_spc);
+        my_sim.draw();
 
         draw_rectangle(lin_spc.sample_i(0), sldr.pos == 0);
         draw_rectangle(lin_spc.sample_i(1), sldr.pos == 1);
@@ -248,8 +238,6 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
         // rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
-
-        my_sim.draw();
 
         // const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
         // _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
