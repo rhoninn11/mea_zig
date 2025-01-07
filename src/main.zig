@@ -7,7 +7,7 @@ const Timeline = @import("mods/time.zig").Timeline;
 
 const Circle = @import("mods/circle.zig").Circle;
 const Osc = @import("mods/osc.zig").Osc;
-const Vec2i = @import("mods/math.zig").Vec2i;
+const Vec2i = @import("mods/core/math.zig").Vec2i;
 const THEME = @import("mods/circle.zig").THEME;
 
 const TextInputModule = @import("mods/TextInputModule.zig");
@@ -33,7 +33,7 @@ fn WireSignals(circle_arr: []Circle, sig_arr: []*Signal) void {
     for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
 }
 
-const math = @import("mods/math.zig");
+const math = @import("mods/core/math.zig");
 const u2i = math.u2i;
 const u2f = math.u2f;
 const f2i = math.f2i;
@@ -71,20 +71,57 @@ const SpaceSim = struct {
     }
 };
 
+fn asV(v: anytype) vf2 {
+    return @splat(v);
+}
+
 const Inertia = struct {
     const Self = Inertia;
     x: vf2,
-    pos: vf2,
-    vel: vf2 = @splat(0),
+    y: vf2,
+    yd: vf2 = @splat(0),
 
-    next_x: vf2 = @splat(0),
-    next_pos: vf2 = @splat(0),
-    next_vel: vf2 = @splat(0),
+    f: vf2 = @splat(1),
+    z: vf2 = @splat(1),
+    r: vf2 = @splat(0),
+
+    k1: vf2 = @splat(0),
+    k2: vf2 = @splat(0),
+    k3: vf2 = @splat(0),
+
+    fn simulate(self: *Self) void {
+        self.kRecalc();
+        const td: vf2 = @splat(0.016); //example time delta
+
+        const ks = self;
+        const xd: vf2 = @splat(0);
+        const ydd = (self.x + ks.k3 * xd - self.y - ks.k1 * self.yd) / ks.k2;
+        const y_ = self.y + td * self.yd;
+        const yd_ = self.yd + td * ydd;
+        // self.next_vel = self.vel + td * self.acc;
+
+        self.y = y_;
+        self.yd = yd_;
+
+        // self.y = self.x;
+    }
+
+    fn kRecalc(self: *Self) void {
+        const vpi: vf2 = comptime asV(std.math.pi);
+        const vone: vf2 = comptime asV(1);
+        const vtwo: vf2 = comptime asV(2);
+        const vfour: vf2 = comptime asV(4);
+
+        const intermed = vpi * self.f;
+        self.k1 = self.z / (intermed);
+        self.k2 = vone / (vfour * intermed * intermed);
+        self.k3 = (self.r * self.k1) / vtwo;
+    }
 
     fn spawn(spot: vf2) Self {
         return Inertia{
             .x = spot,
-            .pos = spot,
+            .y = spot,
         };
     }
 
@@ -92,17 +129,8 @@ const Inertia = struct {
         self.x = new_target;
     }
 
-    fn simulate(self: *Self) void {
-        const td = 0.016; //example time delta
-
-        self.next_pos = self.pos + td * self.vel;
-        self.pos = self.x;
-
-        self.next_x = self.x;
-    }
-
     fn getPos(self: *Self) vf2 {
-        return self.pos;
+        return self.y;
     }
 };
 

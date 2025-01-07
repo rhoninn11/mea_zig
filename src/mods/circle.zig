@@ -14,7 +14,13 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
-const vi2 = @import("math.zig").vi2;
+const math = @import("core/math.zig");
+const vi2 = math.vi2;
+const i2f = math.i2f;
+
+fn upVec() rl.Vector3 {
+    return rl.Vector3.init(0, 0, 1);
+}
 
 pub const Circle = struct {
     const Self = @This();
@@ -39,7 +45,10 @@ pub const Circle = struct {
         const mask = vi2{ 1, 0 };
         shadow_pos += osc_pos * mask;
 
-        rl.drawCircle(circle_pos[0], circle_pos[1], 20, self.color);
+        // rl.drawCircle(circle_pos[0], circle_pos[1], 20, self.color);
+        const pos3D = rl.Vector3.init(i2f(circle_pos[0]), i2f(circle_pos[1]), 0);
+
+        rl.drawCircle3D(pos3D, 20, upVec(), 0, self.color);
         rl.drawEllipse(shadow_pos[0], shadow_pos[1], 25, 5, THEME[1]);
     }
 

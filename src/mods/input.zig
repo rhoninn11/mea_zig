@@ -135,7 +135,7 @@ test "comptime len calc" {
     try std.testing.expect(mapping.len == action_len);
 }
 
-const math = @import("math.zig");
+const math = @import("core/math.zig");
 const i2f = math.i2f;
 pub fn sample_mouse() math.vf2 {
     const mx = rl.getMouseX();
