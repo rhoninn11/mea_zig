@@ -34,16 +34,10 @@ fn WireSignals(circle_arr: []Circle, sig_arr: []*Signal) void {
 }
 
 const math = @import("mods/core/math.zig");
-const u2i = math.u2i;
-const u2f = math.u2f;
-const f2i = math.f2i;
-const i2f = math.i2f;
-const calcProgress = math.calcProgres;
-
 const vi2 = math.vi2;
 const vf2 = math.vf2;
-const LinSpace = @import("spatial.zig").LinSpace;
 
+const LinSpace = @import("spatial.zig").LinSpace;
 const SpaceSim = struct {
     const Self = @This();
     crcls: []Circle,
@@ -71,69 +65,6 @@ const SpaceSim = struct {
     }
 };
 
-fn asV(v: anytype) vf2 {
-    return @splat(v);
-}
-
-const Inertia = struct {
-    const Self = Inertia;
-    x: vf2,
-    y: vf2,
-    yd: vf2 = @splat(0),
-
-    f: vf2 = @splat(1),
-    z: vf2 = @splat(1),
-    r: vf2 = @splat(0),
-
-    k1: vf2 = @splat(0),
-    k2: vf2 = @splat(0),
-    k3: vf2 = @splat(0),
-
-    fn simulate(self: *Self) void {
-        self.kRecalc();
-        const td: vf2 = @splat(0.016); //example time delta
-
-        const ks = self;
-        const xd: vf2 = @splat(0);
-        const ydd = (self.x + ks.k3 * xd - self.y - ks.k1 * self.yd) / ks.k2;
-        const y_ = self.y + td * self.yd;
-        const yd_ = self.yd + td * ydd;
-        // self.next_vel = self.vel + td * self.acc;
-
-        self.y = y_;
-        self.yd = yd_;
-
-        // self.y = self.x;
-    }
-
-    fn kRecalc(self: *Self) void {
-        const vpi: vf2 = comptime asV(std.math.pi);
-        const vone: vf2 = comptime asV(1);
-        const vtwo: vf2 = comptime asV(2);
-        const vfour: vf2 = comptime asV(4);
-
-        const intermed = vpi * self.f;
-        self.k1 = self.z / (intermed);
-        self.k2 = vone / (vfour * intermed * intermed);
-        self.k3 = (self.r * self.k1) / vtwo;
-    }
-
-    fn spawn(spot: vf2) Self {
-        return Inertia{
-            .x = spot,
-            .y = spot,
-        };
-    }
-
-    fn setTarget(self: *Self, new_target: vf2) void {
-        self.x = new_target;
-    }
-
-    fn getPos(self: *Self) vf2 {
-        return self.y;
-    }
-};
-
 const Slider = struct {
     pos: u32 = 0,
     max: u32 = 2,
@@ -148,14 +79,12 @@ const Slider = struct {
     }
 };
 
-const sample_mouse = @import("mods/input.zig").sample_mouse;
+const input = @import("mods/input.zig");
 
 fn draw_rectangle(spot: vi2, active: bool) void {
     const defCol = if (active) rl.Color.yellow else rl.Color.dark_green;
     rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, defCol);
 }
-
-const spt = @import("spatial.zig");
 
 fn log_slice_info(slice: []f32) void {
     std.debug.print("---\n", .{});
@@ -163,6 +92,12 @@ fn log_slice_info(slice: []f32) void {
         std.debug.print(" num value is: {d:.2}\n", .{num_val});
     }
 }
+
+const spt = @import("spatial.zig");
+
+const phys = @import("mods/phys.zig");
+const Iner = phys.Inertia;
+const PhysInprnt = phys.PhysInprint;
 
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     _ = arena;
@@ -218,13 +153,19 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     var life_time_ms: f64 = 0;
 
-    var inertia_start = Inertia.spawn(lin_spc.a);
-    var inertia_end = Inertia.spawn(lin_spc.b);
+    var inertia_start = Iner.spawn(lin_spc.a);
+    var inertia_end = Iner.spawn(lin_spc.b);
 
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
 
-    const inerts = &[_]*Inertia{ &inertia_start, &inertia_end };
+    var phx = PhysInprnt{};
+    phx.reecalc();
+    const inerts = &[_]*Iner{
+        &inertia_start,
+        &inertia_end,
+    };
+    for (inerts) |singl_one| singl_one.phx = &phx;
 
     var sldr = Slider{ .max = 1 };
     while (exit_signal.get() == false) {
@@ -246,7 +187,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         // selection and movement control
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
-        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(sample_mouse());
+        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(input.sample_mouse());
 
         for (inerts) |inertia_point| inertia_point.simulate();
 
