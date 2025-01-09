@@ -13,14 +13,14 @@ const THEME = @import("mods/circle.zig").THEME;
 const TextInputModule = @import("mods/TextInputModule.zig");
 const TxtEditor = TextInputModule.TextEditor;
 
-const InputModule = @import("mods/input.zig");
-const Signal = InputModule.Signal;
-const KbKey = InputModule.KbKey;
+const input = @import("mods/input.zig");
+const Signal = input.Signal;
+const KbKey = input.KbKey;
 
-fn KBSignals(comptime n: usize, key_enums: [n]rl.KeyboardKey) ![n]KbKey {
-    var holds: [n]KbKey = undefined;
-    for (key_enums, 0..) |key, i| holds[i] = KbKey.init(key);
-    return holds;
+fn obtain_keys(comptime n: usize, comptime letters: *const [n:0]u8) [n]KbKey {
+    const key_n = letters.len;
+    const keys = input.find_key_mapping(letters, key_n);
+    return input.KbSignals(&keys, letters, key_n);
 }
 
 fn ExtractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
@@ -53,6 +53,8 @@ const SpaceSim = struct {
 
     fn sample_circles(self: Self, lin_space: LinSpace) void {
         for (self.prog, self.crcls) |prog, *circle| {
+
+            // std.debug.print("value is: {d}\n", .{cords});
             const spot = lin_space.sample_i(prog);
             circle.setPos(spot);
         }
@@ -62,6 +64,11 @@ const SpaceSim = struct {
         for (self.crcls, self.oscs) |this_circle, that_osc| {
             this_circle.draw(that_osc);
         }
+    }
+
+    fn update(self: *Self, td: f32) void {
+        for (self.oscs) |*osc| osc.update(td);
+        for (self.crcls) |*crcl| crcl.update();
     }
 };
 
@@ -78,8 +85,6 @@ const Slider = struct {
         if (sldr.pos != sldr.min) sldr.pos -= 1;
     }
 };
-
-const input = @import("mods/input.zig");
 
 fn draw_rectangle(spot: vi2, active: bool) void {
     const defCol = if (active) rl.Color.yellow else rl.Color.dark_green;
@@ -112,36 +117,36 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var tmln = try Timeline.basic();
     // rl.setTargetFPS(59);
 
+    const letters = "qwertyuiopasdfghjklzxcvbnm";
+    var letter_keys = obtain_keys(letters.len, letters);
+
     const n = 5;
     const m = n + 6;
+    std.debug.assert(m >= n);
 
     var cirlce_arr = Circle.createN(m);
     var osc_arr = Osc.createN(m);
 
-    const without_tips = spt.progOps{ .len = m, .first = false, .last = false };
-    const progress_marks: []const f32 = &spt.linProg(without_tips);
-    const my_sim = SpaceSim{
+    const no_tips = spt.progCfg{ .len = m, .first = false, .last = false };
+    const progress_marks: []const f32 = &spt.linSpace(no_tips);
+
+    // można by zaplanować ograniczoną ilość takich segmentów
+    var my_sim = SpaceSim{
         .crcls = cirlce_arr[0..m],
         .oscs = osc_arr[0..m],
         .prog = progress_marks,
     };
 
     const action_key = "qwert";
-    const action_len = action_key.len;
-    const keys = InputModule.find_key_mapping(action_key, action_len);
-    var skill_keys = InputModule.KbSignals(&keys, action_key, n);
+    var skill_keys = obtain_keys(action_key.len, action_key);
 
     var skill_signals = ExtractSignals(n, &skill_keys);
     WireSignals(cirlce_arr[0..n], skill_signals[0..n]);
 
-    const n_letters = 26;
-    const letters: []const u8 = "qwertyuiopasdfghjklzxcvbnm";
-    const letter_enums = InputModule.find_key_mapping(letters, n_letters);
-    var letter_keys = InputModule.KbSignals(&letter_enums, letters, n_letters);
     // var txt_editor = try TxtEditor.spawn(arena);
 
     const spot_a: vi2 = @splat(100);
-    const spot_b: vi2 = @splat(344);
+    const spot_b: vi2 = vi2{ 700, 100 };
 
     var lin_spc = LinSpace{
         .a = spot_a,
@@ -175,9 +180,11 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         for (&letter_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
         for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
-        for (&cirlce_arr) |*circle| circle.update();
+        if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
+        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(input.sample_mouse());
 
-        for (&osc_arr) |*osc| osc.update(delta_ms);
+        // for (&cirlce_arr) |*circle| circle.update();
+        // for (&osc_arr) |*osc| osc.update(delta_ms);
 
         // txt_editor.collectInput(&letter_keys, delta_ms);
 
@@ -185,15 +192,12 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         defer rl.endDrawing();
         rl.clearBackground(THEME[0]);
 
-        // selection and movement control
-        if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
-        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(input.sample_mouse());
-
-        for (inerts) |inertia_point| inertia_point.simulate();
+        for (inerts) |inertia_point| inertia_point.simulate(delta_ms);
 
         lin_spc.a = inerts[0].getPos();
         lin_spc.b = inerts[1].getPos();
 
+        my_sim.update(delta_ms);
         my_sim.sample_circles(lin_spc);
         my_sim.draw();
 

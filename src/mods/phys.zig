@@ -36,13 +36,14 @@ pub const Inertia = struct {
     yd: vf2 = @splat(0),
     phx: ?*PhysInprint = null,
 
-    pub fn simulate(self: *Self) void {
-        const td: vf2 = @splat(0.016); //example time delta
+    pub fn simulate(self: *Self, td_ms: f32) void {
+        std.debug.assert(td_ms < 100); //could crash app
+        const tdv: vf2 = @splat(td_ms / 1000); //example time delta
         const xd: vf2 = @splat(0);
         if (self.phx) |phx| {
             const ydd = (self.x + phx.k3 * xd - self.y - phx.k1 * self.yd) / phx.k2;
-            self.y = self.y + td * self.yd;
-            self.yd = self.yd + td * ydd;
+            self.y = self.y + tdv * self.yd;
+            self.yd = self.yd + tdv * ydd;
         }
     }
 
