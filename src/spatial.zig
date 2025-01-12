@@ -2,13 +2,22 @@ const std = @import("std");
 const math = @import("mods/core/math.zig");
 const calcProgress = math.calcProgres;
 
-pub const progCfg = struct {
+pub const LineOpts = struct {
     len: usize = 10,
     first: bool = true,
     last: bool = true,
 };
 
-pub fn linSpace(comptime prog_ops: progCfg) [prog_ops.len]f32 {
+fn _line1D(comptime len: u32) [len]f32 {
+    var result: [len]f32 = undefined;
+    for (0..len) |i| {
+        const idx: u32 = @intCast(i);
+        result[i] = calcProgress(idx, len, true);
+    }
+    return result;
+}
+
+pub fn line1D(comptime prog_ops: LineOpts) [prog_ops.len]f32 {
     comptime var padded_len = prog_ops.len;
     const fOff = if (prog_ops.first) 0 else 1;
     if (prog_ops.first == false) padded_len += 1;
@@ -16,12 +25,7 @@ pub fn linSpace(comptime prog_ops: progCfg) [prog_ops.len]f32 {
 
     return trim_blk: {
         const nu32 = @as(u32, padded_len);
-
-        var end2end: [padded_len]f32 = undefined;
-        for (0..padded_len) |i| {
-            const idx: u32 = @intCast(i);
-            end2end[i] = calcProgress(idx, nu32, true);
-        }
+        const end2end = _line1D(nu32);
 
         var sub: [prog_ops.len]f32 = undefined;
         for (0..prog_ops.len) |idx| {
@@ -32,17 +36,17 @@ pub fn linSpace(comptime prog_ops: progCfg) [prog_ops.len]f32 {
 }
 
 test "linProg test" {
-    var elo = linSpace(progCfg{ .len = 10 });
+    var elo = line1D(LineOpts{ .len = 10 });
     try std.testing.expect(elo.len == 10);
     try std.testing.expectEqual(elo[0], 0);
     try std.testing.expectEqual(elo[1], 1);
 
-    elo = linSpace(progCfg{ .len = 10, .last = false });
+    elo = line1D(LineOpts{ .len = 10, .last = false });
     try std.testing.expect(elo.len == 10);
     try std.testing.expect(elo[9] < 0.99);
     try std.testing.expectEqual(elo[0], 0);
 
-    elo = linSpace(progCfg{ .len = 10, .first = false, .last = false });
+    elo = line1D(LineOpts{ .len = 10, .first = false, .last = false });
     try std.testing.expect(elo.len == 10);
     try std.testing.expect(elo[0] > 0.99);
     try std.testing.expect(elo[9] < 0.99);
@@ -69,3 +73,13 @@ pub const LinSpace = struct {
         return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
     }
 };
+
+pub fn LinStage(comptime len: u32) type {
+    const no_tips = LineOpts{ .len = len, .first = false, .last = false };
+    const with_tips = LineOpts{ .len = len, .first = true, .last = true };
+
+    return struct {
+        pub const end2end: []const f32 = &line1D(with_tips);
+        pub const middle: []const f32 = &line1D(no_tips);
+    };
+}

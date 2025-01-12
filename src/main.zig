@@ -44,7 +44,7 @@ const SpaceSim = struct {
     oscs: []Osc,
     prog: []const f32,
 
-    fn sample_phase(self: Self) void {
+    fn init_phase(self: Self) void {
         for (self.prog, self.oscs) |prog, *osc| {
             const phase = prog * 6;
             osc.phase = phase;
@@ -102,7 +102,7 @@ const spt = @import("spatial.zig");
 
 const phys = @import("mods/phys.zig");
 const Iner = phys.Inertia;
-const PhysInprnt = phys.PhysInprint;
+const PhysInprint = phys.PhysInprint;
 
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     _ = arena;
@@ -121,39 +121,35 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var letter_keys = obtain_keys(letters.len, letters);
 
     const n = 5;
+    const action_key = "qwert";
+    var skill_keys = obtain_keys(action_key.len, action_key);
+
     const m = n + 6;
     std.debug.assert(m >= n);
 
     var cirlce_arr = Circle.createN(m);
-    var osc_arr = Osc.createN(m);
-
-    const no_tips = spt.progCfg{ .len = m, .first = false, .last = false };
-    const progress_marks: []const f32 = &spt.linSpace(no_tips);
-
-    // można by zaplanować ograniczoną ilość takich segmentów
-    var my_sim = SpaceSim{
-        .crcls = cirlce_arr[0..m],
-        .oscs = osc_arr[0..m],
-        .prog = progress_marks,
-    };
-
-    const action_key = "qwert";
-    var skill_keys = obtain_keys(action_key.len, action_key);
-
     var skill_signals = ExtractSignals(n, &skill_keys);
     WireSignals(cirlce_arr[0..n], skill_signals[0..n]);
 
+    var osc_arr = Osc.createN(m);
     // var txt_editor = try TxtEditor.spawn(arena);
 
     const spot_a: vi2 = @splat(100);
     const spot_b: vi2 = vi2{ 700, 100 };
 
-    var lin_spc = LinSpace{
+    const stage = spt.LinStage(m);
+    var lin_spc = spt.LinSpace{
         .a = spot_a,
         .b = spot_b,
     };
 
-    my_sim.sample_phase();
+    // można by zaplanować ograniczoną ilość takich segmentów
+    var my_sim = SpaceSim{
+        .crcls = cirlce_arr[0..m],
+        .oscs = osc_arr[0..m],
+        .prog = stage.middle,
+    };
+    my_sim.init_phase();
     my_sim.sample_circles(lin_spc);
 
     var life_time_ms: f64 = 0;
@@ -164,13 +160,15 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
 
-    var phx = PhysInprnt{};
+    var phx = PhysInprint{};
+    var phx1 = PhysInprint.new(2, 1, 0);
     phx.reecalc();
     const inerts = &[_]*Iner{
         &inertia_start,
         &inertia_end,
     };
     for (inerts) |singl_one| singl_one.phx = &phx;
+    inertia_end.phx = &phx1;
 
     var sldr = Slider{ .max = 1 };
     while (exit_signal.get() == false) {
@@ -182,11 +180,6 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
         if (skill_signals[0].get()) inerts[sldr.pos].setTarget(input.sample_mouse());
-
-        // for (&cirlce_arr) |*circle| circle.update();
-        // for (&osc_arr) |*osc| osc.update(delta_ms);
-
-        // txt_editor.collectInput(&letter_keys, delta_ms);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -208,12 +201,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
         defer text_alloc.free(info);
 
-        // std.debug.print(info_template, .{time_delta_ms});
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        // rl.drawText(txt_editor.cStr(), 50, 70, 20, THEME[1]);
-
-        // const btn_loc = rl.Rectangle{ .height = 100, .width = 300, .x = 100, .y = 300 };
-        // _ = rlui.guiButton(btn_loc, "Halo, da się mnie kliknąć?");
     }
 }
 

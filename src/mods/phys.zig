@@ -27,6 +27,16 @@ pub const PhysInprint = struct {
         self.k2 = vone / (vfour * intermed * intermed);
         self.k3 = (self.r * self.k1) / vtwo;
     }
+
+    pub fn new(f: f32, z: f32, r: f32) Self {
+        var inst = Self{
+            .f = @splat(f),
+            .z = @splat(z),
+            .r = @splat(r),
+        };
+        inst.reecalc();
+        return inst;
+    }
 };
 
 pub const Inertia = struct {
