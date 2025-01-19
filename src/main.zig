@@ -104,6 +104,29 @@ const phys = @import("mods/phys.zig");
 const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
 
+const ImageBox = @import("ImageBox.zig");
+var img_box = ImageBox{};
+
+fn simulation_warmup() !void {
+    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const fmt_alloc = fmt_gpa.allocator();
+    defer _ = fmt_gpa.deinit();
+
+    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
+    const arena = obj_arena.allocator();
+    defer _ = obj_arena.deinit();
+
+    {
+        const info_template = "+++ there is {d} kyes, we need to track for typing\n";
+        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{0});
+        defer fmt_alloc.free(info);
+        std.debug.print("{s}", .{info});
+    }
+    // img_box.imageLoadTry();
+    try simulation(fmt_alloc, arena);
+}
+
 fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     _ = arena;
     const screenWidth = 800;
@@ -156,19 +179,21 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     var inertia_start = Iner.spawn(lin_spc.a);
     var inertia_end = Iner.spawn(lin_spc.b);
+    var pointer_inert = Iner.spawn(vf2{ 0, 0 });
 
     var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
     const exit_signal = &exit_key.hold.base;
 
     var phx = PhysInprint{};
-    var phx1 = PhysInprint.new(2, 1, 0);
+    var pointer_phx = PhysInprint.new(5, 0.33, 1);
     phx.reecalc();
     const inerts = &[_]*Iner{
         &inertia_start,
         &inertia_end,
+        &pointer_inert,
     };
     for (inerts) |singl_one| singl_one.phx = &phx;
-    inertia_end.phx = &phx1;
+    pointer_inert.phx = &pointer_phx;
 
     var sldr = Slider{ .max = 1 };
     while (exit_signal.get() == false) {
@@ -176,10 +201,13 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         const delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(delta_ms);
 
+        const mouse_pose = input.sample_mouse();
+        pointer_inert.setTarget(mouse_pose);
+
         for (&letter_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
         for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
-        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(input.sample_mouse());
+        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(mouse_pose);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -202,27 +230,11 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         defer text_alloc.free(info);
 
         rl.drawText(info, 50, 50, 20, THEME[1]);
+        const tmp = pointer_inert.getPos();
+        const pointer_pos = rl.Vector3.init(tmp[0], tmp[1], 0);
+        rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
+        // img_box.drawRepr();
     }
-}
-
-fn simulation_warmup() !void {
-    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const fmt_alloc = fmt_gpa.allocator();
-    defer _ = fmt_gpa.deinit();
-
-    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
-    const arena = obj_arena.allocator();
-    defer _ = obj_arena.deinit();
-
-    {
-        const info_template = "+++ there is {d} kyes, we need to track for typing\n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{0});
-        defer fmt_alloc.free(info);
-        std.debug.print("{s}", .{info});
-    }
-
-    try simulation(fmt_alloc, arena);
 }
 
 const Prompt = struct {

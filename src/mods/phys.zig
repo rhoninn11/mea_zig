@@ -8,7 +8,7 @@ fn asV(v: anytype) vf2 {
 pub const PhysInprint = struct {
     const Self = PhysInprint;
 
-    f: vf2 = @splat(1),
+    f: vf2 = @splat(2),
     z: vf2 = @splat(1),
     r: vf2 = @splat(0),
 

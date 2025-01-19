@@ -16,6 +16,7 @@ fn color_switch(b: bool) rl.Color {
 
 const math = @import("core/math.zig");
 const vi2 = math.vi2;
+const vf2 = math.vf2;
 const i2f = math.i2f;
 
 fn upVec() rl.Vector3 {
@@ -35,15 +36,14 @@ pub const Circle = struct {
     }
 
     pub fn draw(self: Self, osc: Osc) void {
-        const x: i32 = @intFromFloat(std.math.cos(osc.phase) * osc.amp * 2.22);
-        const y: i32 = @intFromFloat(std.math.sin(osc.phase) * osc.amp * 2);
-        const osc_pos = vi2{ x, y };
+        const osc_pos_f = osc.smple2D() * vf2{ 2.22, 2 };
+        const osc_pos_i = vi2{ @intFromFloat(osc_pos_f[0]), @intFromFloat(osc_pos_f[1]) };
 
-        const circle_pos = self.pos + osc_pos;
+        const circle_pos = self.pos + osc_pos_i;
         var shadow_pos = self.pos + vi2{ 0, self.height };
 
         const mask = vi2{ 1, 0 };
-        shadow_pos += osc_pos * mask;
+        shadow_pos += osc_pos_i * mask;
 
         // rl.drawCircle(circle_pos[0], circle_pos[1], 20, self.color);
         const pos3D = rl.Vector3.init(i2f(circle_pos[0]), i2f(circle_pos[1]), 0);
