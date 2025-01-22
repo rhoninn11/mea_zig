@@ -5,7 +5,7 @@ devDkr: zigBuildWeb jsWebHost
 
 	
 
-app_run:
+run_app:
 	zig build run --prefix fs
 
 app_build:

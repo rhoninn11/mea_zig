@@ -72,51 +72,18 @@ pub const KbKey = struct {
     }
 };
 
-pub fn find_input_key(char_to_find: u8) rl.KeyboardKey {
-    const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
-    const match_chunk: []const u8 = &.{ '_', char_to_find };
-    var result: rl.KeyboardKey = undefined;
-    inline for (e_fields) |field| {
-        const f_name = field.name;
-        if (std.mem.indexOf(u8, f_name, match_chunk)) |idx| {
-            if (idx + 2 == f_name.len) result = @field(rl.KeyboardKey, f_name);
-        }
-    }
-    return result;
+pub fn extractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
+    var sig_arr: [n]*Signal = undefined;
+    for (kb_keys, 0..) |*kb, i| sig_arr[i] = &kb.hold.base;
+    return sig_arr;
 }
 
-test "just single key" {
-    const char_a = 'a';
-    const result_a: rl.KeyboardKey = rl.KeyboardKey.key_a;
-    const char_b = 'b';
-    const result_b: rl.KeyboardKey = rl.KeyboardKey.key_b;
+// -----------------------------------
 
-    var tmp = find_input_key(char_a);
-    try std.testing.expect(tmp == result_a);
-    tmp = find_input_key(char_b);
-    try std.testing.expect(tmp == result_b);
-}
-
-pub fn find_key_mapping(chars_to_find: []const u8, comptime len: usize) [len]rl.KeyboardKey {
-    const b = init: {
-        var elo: [len]rl.KeyboardKey = undefined;
-        for (chars_to_find, 0..) |char, i| {
-            elo[i] = find_input_key(char);
-        }
-        break :init elo;
-    };
-    return b;
-}
-
-test "find multiple keys" {
-    const rlk = rl.KeyboardKey;
-    const chars = "qwer";
-    const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
-
-    // const char_keys: []const u8 = "qwer";
-    const found_keys: []const rl.KeyboardKey = &find_key_mapping(chars, 4);
-
-    try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
+pub fn obtain_keys(comptime n: usize, comptime letters: *const [n:0]u8) [n]KbKey {
+    const key_n = letters.len;
+    const keys = charKeyArray(letters, key_n);
+    return KbSignals(&keys, letters, key_n);
 }
 
 pub fn KbSignals(key_enums: []const rl.KeyboardKey, code_arr: []const u8, comptime n: usize) [n]KbKey {
@@ -127,13 +94,60 @@ pub fn KbSignals(key_enums: []const rl.KeyboardKey, code_arr: []const u8, compti
 
     return holds;
 }
+pub fn charKeyArray(chars: []const u8, comptime len: usize) [len]rl.KeyboardKey {
+    return rl_keys: {
+        var char_key_arr: [len]rl.KeyboardKey = undefined;
+        for (chars, 0..) |char, i| {
+            char_key_arr[i] = charKey(char);
+        }
+        break :rl_keys char_key_arr;
+    };
+}
+
+pub fn charKey(char: u8) rl.KeyboardKey {
+    const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
+    const match_chunk: []const u8 = &.{ '_', char };
+    var result: rl.KeyboardKey = undefined;
+    inline for (e_fields) |field| {
+        const f_name = field.name;
+        if (std.mem.indexOf(u8, f_name, match_chunk)) |idx| {
+            if (idx + 2 == f_name.len) result = @field(rl.KeyboardKey, f_name);
+        }
+    }
+    return result;
+}
+
+test "comptime find keys" {
+    const char_a = 'a';
+    const result_a: rl.KeyboardKey = rl.KeyboardKey.key_a;
+    const char_b = 'b';
+    const result_b: rl.KeyboardKey = rl.KeyboardKey.key_b;
+
+    var tmp = charKey(char_a);
+    try std.testing.expect(tmp == result_a);
+    tmp = charKey(char_b);
+    try std.testing.expect(tmp == result_b);
+}
+
+test "find multiple keys" {
+    const rlk = rl.KeyboardKey;
+    const chars = "qwer";
+    const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+
+    // const char_keys: []const u8 = "qwer";
+    const found_keys: []const rl.KeyboardKey = &charKeyArray(chars, 4);
+
+    try std.testing.expectEqualSlices(rlk, enum_keys, found_keys);
+}
 
 test "comptime len calc" {
     const action_key: []const u8 = "qwert";
     const action_len = action_key.len;
-    const mapping = Module.find_key_mapping(action_key, action_len);
+    const mapping = Module.charKeyArray(action_key, action_len);
     try std.testing.expect(mapping.len == action_len);
 }
+
+// -----------------
 
 const math = @import("core/math.zig");
 const i2f = math.i2f;

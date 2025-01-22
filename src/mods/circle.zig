@@ -68,4 +68,8 @@ pub const Circle = struct {
         const result: [n]Self = .{Self{}} ** n;
         return result;
     }
+    // statics
+    pub fn WireSignals(circle_arr: []Circle, sig_arr: []*Signal) void {
+        for (circle_arr, sig_arr) |*circle, sig| circle.sig = sig;
+    }
 };
