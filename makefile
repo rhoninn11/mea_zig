@@ -26,3 +26,9 @@ jsWebHost:
 npm-install:
 	cd vite_demo && npm install
 
+link_web_libs:
+	ln -s ${PWD}/lib_web ${PWD}/vite_demo/src/lib
+# could have gone recursive
+
+
+
