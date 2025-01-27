@@ -14,5 +14,9 @@ build proj
 clone zls
 checkout to right version
 
+install node lts
+
+ln -s $PWD/lib_web/ $PWD/vite_demo/src/lib
+
 zig build -Dalt --prefix web_demo/prebuilt
 python3 -m http.server

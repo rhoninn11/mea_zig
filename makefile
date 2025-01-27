@@ -14,15 +14,15 @@ app_build:
 app_test:
 	zig build --prefix fs test
 
-zigBuildWeb:
-	zig build -Dalt --prefix web_demo/public
+build_wasm:
+	zig build -Dwasm --prefix vite_demo/public
 
-jsWebLocal:
-	cd web_demo && npx vite
+run_wasm:
+	cd vite_demo && npx vite
 
 jsWebHost:
-	cd web_demo && npx vite --host
+	cd vite_demo && npx vite --host
 
 npm-install:
-	cd web_demo && npm install
+	cd vite_demo && npm install
 

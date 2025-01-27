@@ -1,4 +1,4 @@
-
+// https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode
 
 
 var memory = new WebAssembly.Memory({
@@ -7,9 +7,9 @@ var memory = new WebAssembly.Memory({
 });
 
 
-class MicroAccess {
-    alive = false;
-    audio_stream = null;
+class MicAccess {
+    analyser = null;
+    audio_buffer = null;
     animation_frame = null;
 
     info = () => {
@@ -17,33 +17,48 @@ class MicroAccess {
     };
 }
 
-const libMemo = new MicroAccess();
+const libMemo = new MicAccess();
 libMemo.info()
 
-const opWithAudioStream = (stream) => {
-    libMemo.alive = true;
-    libMemo.audio_stream = stream;
-    libMemo.info();
-
-    const audio_ctx = new AudioContext();
-    const analyser = audio_ctx.createAnalyser();
-    const source = audio_ctx.createMediaStreamSource(stream);
-
-    analyser.fftSize = 2048;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    const update_fn = () => {
-        analyser.getByteTimeDomainData(dataArray);
-        const currentVolume = dataArray.reduce((acc, val) => acc + Math.abs(val - 128), 0) / dataArray.length;
-        console.log(`this frame volume is: ${currentVolume}`);
-        libMemo.animation_frame = requestAnimationFrame(update_fn);
+const onAudioData = () => {
+    const buffer = libMemo.audio_buffer;
+    libMemo.analyser.getByteTimeDomainData(buffer);
+    var max = -100000;
+    var min = 100000;
+    for(var i = 0; i < buffer.length; i++){
+        const sample = buffer[i];
+        if(sample > max ) max = sample;
+        if(sample < min ) min = sample;
     }
-    console.log("+++ first update");
-    update_fn()
-
+    libMemo.animation_frame = requestAnimationFrame(onAudioData);
+    // console.log(`+++ max value in stream: ${min} ${max} ${libMemo.animation_frame}`);
 }
 
+const plugAudio = (stream) => {
+    const chunkSize = 2048;
+
+    const audio_ctx = new window.AudioContext();
+    const analyser = audio_ctx.createAnalyser();
+    const mic_source = audio_ctx.createMediaStreamSource(stream);
+    const audio_buffer = new Uint8Array(chunkSize/2);
+    
+    analyser.fftSize = chunkSize;
+    mic_source.connect(analyser)
+    analyser.getByteTimeDomainData(audio_buffer)
+    
+    
+    libMemo.alive = true;
+    libMemo.analyser = analyser;
+    libMemo.audio_buffer = audio_buffer;
+    libMemo.info();
+
+    onAudioData();
+}
+
+const mediaDevices = navigator.mediaDevices;
+const audioRequest = {
+  audio: true,
+};
 const bridge = {
     env: {
         memory,
@@ -52,8 +67,11 @@ const bridge = {
             console.log(text);
         },
         initRecording: () => {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(opWithAudioStream)
+            mediaDevices.enumerateDevices()
+                .then((devices) => console.log(devices));
+
+            mediaDevices.getUserMedia(audioRequest)
+                .then((stream) => plugAudio(stream));
         }
     }
 }

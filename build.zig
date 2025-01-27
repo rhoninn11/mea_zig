@@ -131,7 +131,7 @@ fn wasm_lib(b: *std.Build, main_file: []const u8) !void {
 pub fn app_build(b: *std.Build) !void {
     // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
     // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
-    const alt = b.option(bool, "alt", "+++ build alternative program") orelse false;
+    const alt = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (!alt) {
         try local_app(b, "main.zig");
