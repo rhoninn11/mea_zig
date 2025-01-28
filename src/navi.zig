@@ -1,17 +1,14 @@
 const std = @import("std");
 const rl = @import("raylib");
 const math = @import("mods/core/math.zig");
+const repr = @import("mods/core/repr.zig");
+const elems = @import("mods/elements.zig");
 
 const Allocator = std.mem.Allocator;
 const Timeline = @import("mods/time.zig").Timeline;
 
 const Vec2i = @import("mods/core/math.zig").Vec2i;
 const THEME = @import("mods/circle.zig").THEME;
-
-fn draw_rectangle(spot: vi2, active: bool) void {
-    const defCol = if (active) rl.Color.yellow else rl.Color.dark_green;
-    rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, defCol);
-}
 
 fn log_slice_info(slice: []f32) void {
     std.debug.print("---\n", .{});
@@ -56,6 +53,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const screenWidth = 800;
     const screenHeight = 450;
 
+    const corner = math.vf2{ screenWidth, 0 };
+
     const tile: [:0]const u8 = "playgroung for image displaying";
 
     rl.initWindow(screenWidth, screenHeight, tile.ptr);
@@ -70,14 +69,12 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     const action_key = "qwert";
     var skill_keys = input.obtain_keys(action_key.len, action_key);
 
-    var exit_key = input.KbKey.init(rl.KeyboardKey.key_escape, 0);
-    const exit_signal = &exit_key.hold.base;
+    var exit = elems.Exiter.spawn(corner, rl.KeyboardKey.key_escape);
+    exit.selfReference();
 
-    // TODO: tu bym pewnie mógł opracować wychodzenie po przytrzymaniu esc
     // TODO: będę tu testował rendering obrazka
     // TODO: może by tak wygenerować algorytmicznie jakąś teksturę, na przykład rysując do niej różne kształy
-
-    while (exit_signal.get() == false) {
+    while (exit.toContinue()) {
         // exit_key.check_input();
         const delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(delta_ms);
@@ -85,6 +82,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         const mouse_pose = input.sample_mouse();
 
         for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
+        exit.update(delta_ms);
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -98,6 +96,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
         const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
-        // img_box.drawRepr();
+
+        repr.frame(mouse_pose, false);
+        exit.draw();
     }
 }

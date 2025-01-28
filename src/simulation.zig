@@ -2,6 +2,8 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const math = @import("mods/core/math.zig");
+const repr = @import("mods/core/repr.zig");
+
 const input = @import("mods/input.zig");
 const spt = @import("spatial.zig");
 
@@ -69,11 +71,6 @@ const Slider = struct {
     }
 };
 
-fn draw_rectangle(spot: vi2, active: bool) void {
-    const defCol = if (active) rl.Color.yellow else rl.Color.dark_green;
-    rl.drawRectangle(spot[0] - 25, spot[1] - 25, 50, 50, defCol);
-}
-
 fn log_slice_info(slice: []f32) void {
     std.debug.print("---\n", .{});
     for (slice) |num_val| {
@@ -84,9 +81,6 @@ fn log_slice_info(slice: []f32) void {
 const phys = @import("mods/phys.zig");
 const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
-
-const ImageBox = @import("ImageBox.zig");
-var img_box = ImageBox{};
 
 pub fn springy_osclation() !void {
     var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -205,8 +199,8 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         my_sim.sample_circles(lin_spc);
         my_sim.draw();
 
-        draw_rectangle(lin_spc.sample_i(0), sldr.pos == 0);
-        draw_rectangle(lin_spc.sample_i(1), sldr.pos == 1);
+        repr.frame(lin_spc.sample(0), sldr.pos == 0);
+        repr.frame(lin_spc.sample(1), sldr.pos == 1);
 
         const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});

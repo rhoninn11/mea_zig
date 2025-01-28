@@ -78,6 +78,31 @@ pub fn extractSignals(comptime n: usize, kb_keys: *[n]KbKey) [n]*Signal {
     return sig_arr;
 }
 
+pub const Delay = struct {
+    const Self = @This();
+
+    to_track: *Signal,
+    internal: Signal = Signal{},
+    ms_delay: f32 = 500,
+    delay_counter: f32 = 0,
+    pub fn update(self: *Self, ms_delta: f32) void {
+        self.delay_counter = switch (self.to_track.get()) {
+            true => self.delay_counter + ms_delta,
+            false => 0,
+        };
+
+        if (self.delay_counter > self.ms_delay) self.internal.set(true);
+    }
+
+    pub fn get(self: Self) bool {
+        return self.internal.get();
+    }
+
+    pub fn sigRef(self: *Self) *Signal {
+        return &self.internal;
+    }
+};
+
 // -----------------------------------
 
 pub fn obtain_keys(comptime n: usize, comptime letters: *const [n:0]u8) [n]KbKey {

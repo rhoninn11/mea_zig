@@ -8,17 +8,17 @@ devDkr: zigBuildWeb jsWebHost
 run_app:
 	zig build run --prefix fs
 
-app_build:
+build_app:
 	zig build --prefix fs
 
-app_test:
+test_app:
 	zig build --prefix fs test
-
-build_wasm:
-	zig build -Dwasm --prefix vite_demo/public
 
 run_wasm:
 	cd vite_demo && npx vite
+
+build_wasm:
+	zig build -Dwasm --prefix vite_demo/public
 
 jsWebHost:
 	cd vite_demo && npx vite --host
