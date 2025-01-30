@@ -4,10 +4,11 @@ const examples = enum {
     phxsim,
     jtinker,
     navigation,
+    prototest,
 };
 
 pub fn main() !void {
-    const selector: examples = .navigation;
+    const selector: examples = .prototest;
     switch (selector) {
         .phxsim => {
             const sprigy_sim = @import("simulation.zig").springy_osclation;
@@ -21,8 +22,13 @@ pub fn main() !void {
         },
         .navigation => {
             const texture_demo = @import("navi.zig").springy_osclation;
-            std.debug.print("Jakies demko z kamerą i obrazkami", .{});
+            std.debug.print("Na razie tutaj łatwiej było opracować zamykanie okna" +
+                "Ale w tutaj przećwiczone zostaną jeszcze eksperymenty z teksturami", .{});
             try texture_demo();
+        },
+        .prototest => {
+            const pt = @import("explore/protobuf.zig");
+            pt.protobufTest();
         },
     }
 }

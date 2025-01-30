@@ -1,38 +1,29 @@
 const std = @import("std");
-
-pub fn wasm_target_build(b: *std.Build) void {
-    const target = .{
-        .cpu_arch = .wasam32,
-        .os_tag = .freestanding,
-    };
-
-    const lib = b.addSharedLibrary(.{
-        .name = "app",
-        .root_source_file = b.path("src/wasm.zig"),
-        .target = target,
-    });
-
-    lib.rdynamic = true;
-    lib.import_memory = true;
-    lib.initial_memory = 65536 * 4;
-    lib.max_memory = 65536 * 4;
-
-    b.installArtifact(lib);
-}
+const protobuf = @import("protobuf");
 
 const Compile = std.Build.Step.Compile;
-
-// comptime fn Options(bld: *std.Build) type {
-//     return struct {
-//         .target = b.standardOptimizeOption(.{}),
-//     };
-// }
+const Dependency = std.Build.Dependency;
 const std_target = std.Build.ResolvedTarget;
 const std_opims = std.builtin.OptimizeMode;
 
 const buildOptions = struct {
     target: std_target,
     optimod: std_opims,
+};
+
+const BuildUnit = struct {
+    bld: *std.Build,
+    bldOpt: buildOptions,
+
+    pub fn addLib(self: BuildUnit, compileUnit: *Compile, name: []const u8) *Dependency {
+        const dep = self.bld.dependency(name, .{
+            .target = self.bldOpt.target,
+            .optimize = self.bldOpt.optimod,
+        });
+
+        compileUnit.root_module.addImport(name, dep.module(name));
+        return dep;
+    }
 };
 
 fn build_options(bld: *std.Build) buildOptions {
@@ -48,21 +39,25 @@ pub fn add_raylib(bld: *std.Build, exe: *Compile, bld_opts: buildOptions) void {
         .optimize = bld_opts.optimod,
     });
 
-    const raylib = raylib_dep.module("raylib"); // main raylib module
-    const raygui = raylib_dep.module("raygui"); // raygui module
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
-
     exe.linkLibrary(raylib_artifact);
+    const raylib = raylib_dep.module("raylib"); // main raylib module
     exe.root_module.addImport("raylib", raylib);
+
+    const raygui = raylib_dep.module("raygui"); // raygui module
     exe.root_module.addImport("raygui", raygui);
 }
 
-pub fn add_zigimg(bld: *std.Build, cmp: *Compile, bld_opt: buildOptions) void {
-    const zig_img = bld.dependency("zigimg", .{
-        .target = bld_opt.target,
-        .optimize = bld_opt.optimod,
+pub fn generateProto(bld: *std.Build, dep: *Dependency, bldOpt: buildOptions) void {
+    const bld_flag = bld.step("gen-proto", "compilation of .proto file in proto/");
+
+    const gen_step = protobuf.RunProtocStep.create(bld, dep.builder, bldOpt.target, .{
+        .destination_directory = bld.path("src/gen"),
+        .source_files = &.{"lib_proto/llm.proto"},
+        .include_directories = &.{},
     });
-    cmp.root_module.addImport("zigimg", zig_img.module("zigimg"));
+
+    bld_flag.dependOn(&gen_step.step);
 }
 
 pub fn local_app(b: *std.Build, main_file: []const u8) !void {
@@ -70,6 +65,7 @@ pub fn local_app(b: *std.Build, main_file: []const u8) !void {
     defer b.allocator.free(src_file_path);
 
     const bld_opts = build_options(b);
+    const bu = BuildUnit{ .bld = b, .bldOpt = bld_opts };
 
     const exe = b.addExecutable(.{
         .name = "app",
@@ -84,8 +80,10 @@ pub fn local_app(b: *std.Build, main_file: []const u8) !void {
         .optimize = bld_opts.optimod,
     });
 
-    add_zigimg(b, exe, bld_opts);
+    _ = bu.addLib(exe, "zigimg");
     add_raylib(b, exe, bld_opts);
+    const pb = bu.addLib(exe, "protobuf");
+    generateProto(b, pb, bld_opts);
 
     add_raylib(b, my_tests, bld_opts);
 
@@ -131,31 +129,15 @@ fn wasm_lib(b: *std.Build, main_file: []const u8) !void {
 pub fn app_build(b: *std.Build) !void {
     // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
     // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
-    const alt = b.option(bool, "wasm", "+++ build alternative program") orelse false;
+    const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
-    if (!alt) {
-        try local_app(b, "main.zig");
-    } else {
+    if (vanila_wasm) {
         try wasm_lib(b, "wasmfns.zig");
+    } else {
+        try local_app(b, "main.zig");
     }
-}
-
-fn cpp_build_exp(b: *std.Build) !void {
-    const bld_ops = build_options(b);
-
-    const exe = b.addExecutable(.{
-        .name = "app_cpp",
-        .root_source_file = b.path("src/main.cpp"),
-        .target = bld_ops.target,
-        .optimize = bld_ops.optimod,
-    });
-
-    b.installArtifact(exe);
-
-    // REDO: this is not how cpp is build with zig
 }
 
 pub fn build(b: *std.Build) void {
     app_build(b) catch std.debug.print("!!! build failed", .{});
-    // cpp_build_exp(b) catch std.debug.print("!!! cpp build failed", {});
 }

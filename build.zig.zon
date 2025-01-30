@@ -31,6 +31,11 @@
             .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
             .hash = "12202f8c415153088be8df39a51e0a4c9d402afd403422a0dcc9afdd417e437a6fdb",
         },
+        .protobuf = .{
+            .url = "https://github.com/Arwalk/zig-protobuf/archive/refs/tags/v2.0.0.tar.gz",
+            .hash = "1220ecab78918a9331e91abe0e15718464211a79d5578044a126c9633e5bd701bf28",
+            // leave the hash as is, the build system will tell you which hash to put here based on your commit
+        },
     },
     .paths = .{
         "build.zig",
