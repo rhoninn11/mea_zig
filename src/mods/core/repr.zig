@@ -17,3 +17,9 @@ pub fn blob(spot: fv2, active: bool, size: f32) void {
     const rl_spot = @Vector(2, i32){ f2i(spot[0]), f2i(spot[1]) };
     rl.drawCircle(rl_spot[0], rl_spot[1], size, defCol);
 }
+
+pub fn cBlob(spot: fv2, color: rl.Color, size: f32) void {
+    const defCol = color;
+    const rl_spot = @Vector(2, i32){ f2i(spot[0]), f2i(spot[1]) };
+    rl.drawCircle(rl_spot[0], rl_spot[1], size, defCol);
+}

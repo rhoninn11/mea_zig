@@ -8,7 +8,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .prototest;
+    const selector: examples = .navigation;
     switch (selector) {
         .phxsim => {
             const sprigy_sim = @import("simulation.zig").springy_osclation;
@@ -22,7 +22,7 @@ pub fn main() !void {
         },
         .navigation => {
             const texture_demo = @import("navi.zig").springy_osclation;
-            std.debug.print("Na razie tutaj łatwiej było opracować zamykanie okna" +
+            std.debug.print("Na razie tutaj łatwiej było opracować zamykanie okna" ++
                 "Ale w tutaj przećwiczone zostaną jeszcze eksperymenty z teksturami", .{});
             try texture_demo();
         },

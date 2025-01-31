@@ -26,32 +26,37 @@ const PhysInprint = phys.PhysInprint;
 const ImageBox = @import("ImageBox.zig");
 var img_box = ImageBox{};
 
+const Memalo = struct {
+    text: Allocator,
+    arean: Allocator,
+};
+
 pub fn springy_osclation() !void {
     var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const fmt_alloc = fmt_gpa.allocator();
-    defer _ = fmt_gpa.deinit();
-
     var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
-    const arena = obj_arena.allocator();
-    defer _ = obj_arena.deinit();
-
-    {
-        const info_template = "+++ there is {d} kyes, we need to track for typing\n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{0});
-        defer fmt_alloc.free(info);
-        std.debug.print("{s}", .{info});
+    defer {
+        _ = obj_arena.deinit();
+        _ = obj_gpa.deinit();
     }
-    // img_box.imageLoadTry();
-    try simulation(fmt_alloc, arena);
+
+    const mm = Memalo{
+        .text = fmt_gpa.allocator(),
+        .arean = obj_arena.allocator(),
+    };
+
+    try simulation(&mm);
 }
 const input = @import("mods/input.zig");
 const vi2 = math.vi2;
 
-fn simulation(text_alloc: Allocator, arena: Allocator) !void {
+fn simulation(aloc: *const Memalo) !void {
+    const arena = aloc.arean;
     _ = arena;
-    const screenWidth = 800;
-    const screenHeight = 450;
+    const text_alloc = aloc.text;
+
+    const screenWidth = 1600;
+    const screenHeight = 900;
 
     const corner = math.vf2{ screenWidth, 0 };
 
@@ -62,18 +67,37 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
 
     var tmln = try Timeline.basic();
     var life_time_ms: f64 = 0;
-    // rl.setTargetFPS(59);
 
+    // kb input
     const n = 5;
     _ = n;
     const action_key = "qwert";
     var skill_keys = input.obtain_keys(action_key.len, action_key);
 
+    // elements
     var exit = elems.Exiter.spawn(corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
+    const Rand = std.rand.DefaultPrng;
+    var _rng = Rand.init(0);
+    var rng = _rng.random();
+
+    const pnt_num = 10000;
+    var points_a: [pnt_num]math.vf2 = undefined;
+    var sizes: [pnt_num]f32 = undefined;
+    var colors: [pnt_num]rl.Color = undefined;
+    for (0..pnt_num) |i| {
+        const x = rng.float(f32);
+        const y = rng.float(f32);
+        points_a[i] = math.vf2{ x * screenWidth, y * screenHeight };
+        sizes[i] = y * 15 + 5;
+        colors[i] = rl.Color.fromHSV(rng.float(f32), rng.float(f32), rng.float(f32));
+    }
+
     // TODO: będę tu testował rendering obrazka
-    // TODO: może by tak wygenerować algorytmicznie jakąś teksturę, na przykład rysując do niej różne kształy
+    // na przykład tworząc prosty system cząstekowy
+    // gdzie particle sobie oscylują w różnych miejscach
+    // to mógłby byś w pewnym sensie pewien benchmark wydajności
     while (exit.toContinue()) {
         // exit_key.check_input();
         const delta_ms = try tmln.tickMs();
@@ -88,16 +112,19 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         defer rl.endDrawing();
         rl.clearBackground(THEME[0]);
 
-        const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
-        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
-        defer text_alloc.free(info);
-
-        rl.drawText(info, 50, 50, 20, THEME[1]);
+        exit.draw();
 
         const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
 
+        for (points_a, sizes, colors) |point, size, color| {
+            repr.cBlob(point, color, size);
+        }
+
         repr.frame(mouse_pose, false);
-        exit.draw();
+        const info_template: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
+        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{ delta_ms, 1000 / delta_ms });
+        defer text_alloc.free(info);
+        rl.drawText(info, 50, 50, 20, THEME[1]);
     }
 }
