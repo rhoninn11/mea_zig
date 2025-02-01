@@ -1,7 +1,10 @@
+const std = @import("std");
 const rl = @import("raylib");
 const math = @import("core/math.zig");
 const repr = @import("core/repr.zig");
 const input = @import("input.zig");
+
+const vf2 = math.vf2;
 
 pub const Exiter = struct {
     const Self = @This();
@@ -58,3 +61,36 @@ pub const Exiter = struct {
         return exitCond == false;
     }
 };
+
+pub fn SurfaceInfo(n: u32) type {
+    return struct {
+        const Self = @This();
+        const rows = 32;
+        const cols = n / Self.rows;
+
+        tiles: [n]repr.Tile,
+
+        pub fn draw(self: *Self) void {
+            for (&self.tiles) |*tile| repr.tBlob(tile.*);
+        }
+
+        pub fn benchGrid(self: *Self, size: math.vf2) void {
+            const Rand = std.rand.DefaultPrng;
+            var _rng = Rand.init(0);
+            var rng = _rng.random();
+
+            const rowspace = 1.0 / @as(f32, @floatFromInt(Self.rows));
+            const colspace = 1.0 / @as(f32, @floatFromInt(Self.cols));
+
+            for (0..n) |i| {
+                const x = @as(f32, @floatFromInt(i / Self.rows)) * colspace;
+                const y = @as(f32, @floatFromInt(@mod(i, Self.rows))) * rowspace;
+
+                var tile: *repr.Tile = &self.tiles[i];
+                tile.pos = vf2{ x, y } * size;
+                tile.size = y * 15 + 5;
+                tile.color = rl.Color.fromHSV(rng.float(f32) * 10, rng.float(f32), rng.float(f32));
+            }
+        }
+    };
+}

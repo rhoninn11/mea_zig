@@ -2,10 +2,9 @@ const rl = @import("raylib");
 const std = @import("std");
 
 const Osc = @import("osc.zig").Osc;
-
 const Signal = @import("input.zig").Signal;
 
-pub const THEME = [_]rl.Color{ rl.Color.black, rl.Color.beige };
+const THEME = @import("core/repr.zig").Theme;
 
 fn color_switch(b: bool) rl.Color {
     return switch (b) {

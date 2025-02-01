@@ -8,7 +8,7 @@ const Allocator = std.mem.Allocator;
 const Timeline = @import("mods/time.zig").Timeline;
 
 const Vec2i = @import("mods/core/math.zig").Vec2i;
-const THEME = @import("mods/circle.zig").THEME;
+const THEME = @import("mods/core/repr.zig").Theme;
 
 fn log_slice_info(slice: []f32) void {
     std.debug.print("---\n", .{});
@@ -50,10 +50,6 @@ const input = @import("mods/input.zig");
 const vi2 = math.vi2;
 const vf2 = math.vf2;
 
-fn SurfaceInfo(n: u32) type {
-    return struct { tiles: [n]repr.Tile };
-}
-
 fn simulation(aloc: *const Memalo) !void {
     const arena = aloc.arean;
     _ = arena;
@@ -63,6 +59,7 @@ fn simulation(aloc: *const Memalo) !void {
     const screenHeight = 900;
 
     const corner = math.vf2{ screenWidth, 0 };
+    const screan_size = vf2{ screenWidth, screenHeight };
 
     const title: [:0]const u8 = "playgroung for image displaying";
 
@@ -82,26 +79,10 @@ fn simulation(aloc: *const Memalo) !void {
     var exit = elems.Exiter.spawn(corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
-    const Rand = std.rand.DefaultPrng;
-    var _rng = Rand.init(0);
-    var rng = _rng.random();
+    const dot_number: u32 = 1024;
 
-    const pnt_num: u32 = 1024;
-    const rows: u32 = 32;
-    const cols: u32 = pnt_num / rows;
-    const rowspace = 1.0 / @as(f32, @floatFromInt(rows));
-    const colspace = 1.0 / @as(f32, @floatFromInt(cols));
-
-    var info_on_surface = SurfaceInfo(pnt_num){ .tiles = undefined };
-    for (0..pnt_num) |i| {
-        const x = @as(f32, @floatFromInt(i / rows)) * colspace;
-        const y = @as(f32, @floatFromInt(@mod(i, rows))) * rowspace;
-
-        var tile: *repr.Tile = &info_on_surface.tiles[i];
-        tile.pos = vf2{ x * screenWidth, y * screenHeight };
-        tile.size = y * 15 + 5;
-        tile.color = rl.Color.fromHSV(rng.float(f32) * 10, rng.float(f32), rng.float(f32));
-    }
+    var simple_benchmark = elems.SurfaceInfo(dot_number){ .tiles = undefined };
+    simple_benchmark.benchGrid(screan_size);
 
     var imgB = ImageBox{};
     imgB.imageLoadTry();
@@ -125,11 +106,10 @@ fn simulation(aloc: *const Memalo) !void {
         rl.clearBackground(THEME[0]);
 
         exit.draw();
+        simple_benchmark.draw();
 
         const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
-
-        for (&info_on_surface.tiles) |*tile| repr.tBlob(tile.*);
 
         repr.frame(mouse_pose, false);
         const info_template: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";

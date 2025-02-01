@@ -2,12 +2,25 @@ const rl = @import("raylib");
 const std = @import("std");
 
 const Self = @This();
-
+pub const Theme = @import("mods/core/repr.zig").Theme;
 img: ?rl.Image = null,
 img_gpu: ?rl.Texture2D = null,
 
+fn exampleImage() rl.Image {
+    const w = 128;
+    const h = 128;
+
+    const generate_image = rl.genImageChecked(w, h, 8, 8, Theme[0], Theme[1]);
+    return generate_image;
+}
+
+pub fn saveImageTest() void {
+    const img = exampleImage();
+    _ = rl.exportImage(img, "fs/export.png");
+}
+
 pub fn imageLoadTry(self: *Self) void {
-    const img = rl.loadImage("fs/img.png");
+    const img = exampleImage();
     const h = img.height;
     const w = img.width;
 
