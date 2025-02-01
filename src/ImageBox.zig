@@ -18,7 +18,7 @@ pub fn imageLoadTry(self: *Self) void {
     self.img_gpu = rl.loadTextureFromImage(img);
 }
 
-pub fn drawRepr(self: Self) void {
+pub fn repr(self: Self) void {
     if (self.img_gpu) |tt2D|
         rl.drawTexture(tt2D, 300, 300, rl.Color.white);
 }

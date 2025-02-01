@@ -24,7 +24,6 @@ const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
 
 const ImageBox = @import("ImageBox.zig");
-var img_box = ImageBox{};
 
 const Memalo = struct {
     text: Allocator,
@@ -49,6 +48,11 @@ pub fn springy_osclation() !void {
 }
 const input = @import("mods/input.zig");
 const vi2 = math.vi2;
+const vf2 = math.vf2;
+
+fn SurfaceInfo(n: u32) type {
+    return struct { tiles: [n]repr.Tile };
+}
 
 fn simulation(aloc: *const Memalo) !void {
     const arena = aloc.arean;
@@ -60,9 +64,9 @@ fn simulation(aloc: *const Memalo) !void {
 
     const corner = math.vf2{ screenWidth, 0 };
 
-    const tile: [:0]const u8 = "playgroung for image displaying";
+    const title: [:0]const u8 = "playgroung for image displaying";
 
-    rl.initWindow(screenWidth, screenHeight, tile.ptr);
+    rl.initWindow(screenWidth, screenHeight, title.ptr);
     defer rl.closeWindow();
 
     var tmln = try Timeline.basic();
@@ -82,17 +86,25 @@ fn simulation(aloc: *const Memalo) !void {
     var _rng = Rand.init(0);
     var rng = _rng.random();
 
-    const pnt_num = 10000;
-    var points_a: [pnt_num]math.vf2 = undefined;
-    var sizes: [pnt_num]f32 = undefined;
-    var colors: [pnt_num]rl.Color = undefined;
+    const pnt_num: u32 = 1024;
+    const rows: u32 = 32;
+    const cols: u32 = pnt_num / rows;
+    const rowspace = 1.0 / @as(f32, @floatFromInt(rows));
+    const colspace = 1.0 / @as(f32, @floatFromInt(cols));
+
+    var info_on_surface = SurfaceInfo(pnt_num){ .tiles = undefined };
     for (0..pnt_num) |i| {
-        const x = rng.float(f32);
-        const y = rng.float(f32);
-        points_a[i] = math.vf2{ x * screenWidth, y * screenHeight };
-        sizes[i] = y * 15 + 5;
-        colors[i] = rl.Color.fromHSV(rng.float(f32), rng.float(f32), rng.float(f32));
+        const x = @as(f32, @floatFromInt(i / rows)) * colspace;
+        const y = @as(f32, @floatFromInt(@mod(i, rows))) * rowspace;
+
+        var tile: *repr.Tile = &info_on_surface.tiles[i];
+        tile.pos = vf2{ x * screenWidth, y * screenHeight };
+        tile.size = y * 15 + 5;
+        tile.color = rl.Color.fromHSV(rng.float(f32) * 10, rng.float(f32), rng.float(f32));
     }
+
+    var imgB = ImageBox{};
+    imgB.imageLoadTry();
 
     // TODO: będę tu testował rendering obrazka
     // na przykład tworząc prosty system cząstekowy
@@ -117,14 +129,13 @@ fn simulation(aloc: *const Memalo) !void {
         const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
 
-        for (points_a, sizes, colors) |point, size, color| {
-            repr.cBlob(point, color, size);
-        }
+        for (&info_on_surface.tiles) |*tile| repr.tBlob(tile.*);
 
         repr.frame(mouse_pose, false);
         const info_template: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
         const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{ delta_ms, 1000 / delta_ms });
         defer text_alloc.free(info);
         rl.drawText(info, 50, 50, 20, THEME[1]);
+        imgB.repr();
     }
 }
