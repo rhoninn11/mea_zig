@@ -10,8 +10,19 @@ fn exampleImage() rl.Image {
     const w = 128;
     const h = 128;
 
-    const generate_image = rl.genImageChecked(w, h, 8, 8, Theme[0], Theme[1]);
-    return generate_image;
+    const checker = rl.genImageChecked(w, h, 8, 8, Theme[0], Theme[1]);
+    defer checker.unload();
+    const checker_t2d = rl.loadTextureFromImage(checker);
+    defer checker_t2d.unload();
+    const buffer_t2d = rl.RenderTexture2D.init(w * 2, h * 2);
+    defer buffer_t2d.unload();
+    rl.beginTextureMode(buffer_t2d);
+    rl.drawTexture(checker_t2d, w / 2, w / 2);
+    rl.endTextureMode();
+
+    rl.loadImageFromTexture(buffer_t2d);
+
+    return checker;
 }
 
 pub fn saveImageTest() void {
@@ -31,7 +42,7 @@ pub fn imageLoadTry(self: *Self) void {
     self.img_gpu = rl.loadTextureFromImage(img);
 }
 
-pub fn repr(self: Self) void {
+pub fn repr(self: *Self) void {
     if (self.img_gpu) |tt2D|
         rl.drawTexture(tt2D, 300, 300, rl.Color.white);
 }
