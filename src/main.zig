@@ -8,7 +8,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .navigation;
+    const selector: examples = .prototest;
     switch (selector) {
         .phxsim => {
             const sprigy_sim = @import("simulation.zig").springy_osclation;
@@ -28,7 +28,7 @@ pub fn main() !void {
         },
         .prototest => {
             const pt = @import("explore/protobuf.zig");
-            pt.protobufTest();
+            try pt.protobufTest();
         },
     }
 }

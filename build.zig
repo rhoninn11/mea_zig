@@ -49,11 +49,11 @@ pub fn add_raylib(bld: *std.Build, exe: *Compile, bld_opts: buildOptions) void {
 }
 
 pub fn generateProto(bld: *std.Build, dep: *Dependency, bldOpt: buildOptions) void {
-    const bld_flag = bld.step("gen-proto", "compilation of .proto file in proto/");
+    const bld_flag = bld.step("gen", "compilation of .proto file in proto/");
 
     const gen_step = protobuf.RunProtocStep.create(bld, dep.builder, bldOpt.target, .{
         .destination_directory = bld.path("src/gen"),
-        .source_files = &.{"lib_proto/llm.proto"},
+        .source_files = &.{"proto/comfy.proto"},
         .include_directories = &.{},
     });
 
