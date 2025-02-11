@@ -12,17 +12,19 @@ fn exampleImage() rl.Image {
 
     const checker = rl.genImageChecked(w, h, 8, 8, Theme[0], Theme[1]);
     defer checker.unload();
+
+    while (!rl.isImageReady(checker)) {}
     const checker_t2d = rl.loadTextureFromImage(checker);
     defer checker_t2d.unload();
+
     const buffer_t2d = rl.RenderTexture2D.init(w * 2, h * 2);
     defer buffer_t2d.unload();
-    rl.beginTextureMode(buffer_t2d);
-    rl.drawTexture(checker_t2d, w / 2, w / 2);
-    rl.endTextureMode();
 
-    rl.loadImageFromTexture(buffer_t2d);
+    buffer_t2d.begin();
+    rl.drawTexture(checker_t2d, w / 2, w / 2, rl.Color.white);
+    buffer_t2d.end();
 
-    return checker;
+    return rl.loadImageFromTexture(buffer_t2d.texture);
 }
 
 pub fn saveImageTest() void {

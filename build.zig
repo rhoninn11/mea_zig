@@ -33,7 +33,10 @@ fn build_options(bld: *std.Build) buildOptions {
     };
 }
 
-pub fn add_raylib(bld: *std.Build, exe: *Compile, bld_opts: buildOptions) void {
+pub fn add_raylib(blu: BuildUnit, exe: *Compile) void {
+    const bld = blu.bld;
+    const bld_opts = blu.bldOpt;
+
     const raylib_dep = bld.dependency("raylib-zig", .{
         .target = bld_opts.target,
         .optimize = bld_opts.optimod,
@@ -48,7 +51,10 @@ pub fn add_raylib(bld: *std.Build, exe: *Compile, bld_opts: buildOptions) void {
     exe.root_module.addImport("raygui", raygui);
 }
 
-pub fn generateProto(bld: *std.Build, dep: *Dependency, bldOpt: buildOptions) void {
+pub fn generateProto(blu: BuildUnit, dep: *Dependency) void {
+    const bld = blu.bld;
+    const bldOpt = blu.bldOpt;
+
     const bld_flag = bld.step("gen-proto", "compilation of .proto file in proto/");
 
     const gen_step = protobuf.RunProtocStep.create(bld, dep.builder, bldOpt.target, .{
@@ -60,46 +66,56 @@ pub fn generateProto(bld: *std.Build, dep: *Dependency, bldOpt: buildOptions) vo
     bld_flag.dependOn(&gen_step.step);
 }
 
-pub fn local_app(b: *std.Build, main_file: []const u8) !void {
+pub fn compile_tupla(bUnit: BuildUnit, for_file: []const u8) [2]*Compile {
+    const b = bUnit.bld;
+    const bOps = bUnit.bldOpt;
+
+    var tupla: [2]*Compile = undefined;
+    tupla[0] = bUnit.bld.addExecutable(.{
+        .name = "app",
+        .root_source_file = b.path(for_file),
+        .target = bOps.target,
+        .optimize = bOps.optimod,
+    });
+
+    tupla[1] = b.addTest(.{
+        .root_source_file = b.path(for_file),
+        .target = bOps.target,
+        .optimize = bOps.optimod,
+    });
+    return tupla;
+}
+
+pub fn native_app(b: *std.Build, main_file: []const u8) !void {
     const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
     defer b.allocator.free(src_file_path);
 
     const bld_opts = build_options(b);
-    const bu = BuildUnit{ .bld = b, .bldOpt = bld_opts };
+    const blu = BuildUnit{ .bld = b, .bldOpt = bld_opts };
 
-    const exe = b.addExecutable(.{
-        .name = "app",
-        .root_source_file = b.path(src_file_path),
-        .target = bld_opts.target,
-        .optimize = bld_opts.optimod,
-    });
+    const compile_paths = compile_tupla(blu, src_file_path);
+    for (compile_paths) |compile| {
+        compile.addIncludePath(b.path("src/explore/comptime_types/include/"));
+        add_raylib(blu, compile);
+    }
+    const exe = compile_paths[0];
 
-    const my_tests = b.addTest(.{
-        .root_source_file = b.path(src_file_path),
-        .target = bld_opts.target,
-        .optimize = bld_opts.optimod,
-    });
-
-    _ = bu.addLib(exe, "zigimg");
-    add_raylib(b, exe, bld_opts);
-    const pb = bu.addLib(exe, "protobuf");
-    generateProto(b, pb, bld_opts);
-
-    add_raylib(b, my_tests, bld_opts);
-
+    _ = blu.addLib(exe, "zigimg");
+    const pb = blu.addLib(exe, "protobuf");
+    generateProto(blu, pb);
     b.installArtifact(exe);
 
-    // for run step you must run 'zig build run'
     const run_exe = b.addRunArtifact(exe);
     const run_step = b.step("run", "+++ run cli app after build");
     run_step.dependOn(&run_exe.step);
 
-    const test_exe = b.addRunArtifact(my_tests);
+    const tests = compile_paths[1];
+    const test_exe = b.addRunArtifact(tests);
     const test_step = b.step("test", "+++ run unit tests");
     test_step.dependOn(&test_exe.step);
 }
 
-fn wasm_lib(b: *std.Build, main_file: []const u8) !void {
+fn wasm_app(b: *std.Build, main_file: []const u8) !void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,
@@ -132,9 +148,9 @@ pub fn app_build(b: *std.Build) !void {
     const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (vanila_wasm) {
-        try wasm_lib(b, "wasmfns.zig");
+        try wasm_app(b, "wasmfns.zig");
     } else {
-        try local_app(b, "main.zig");
+        try native_app(b, "main.zig");
     }
 }
 

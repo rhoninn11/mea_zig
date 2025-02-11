@@ -5,6 +5,7 @@ const examples = enum {
     jtinker,
     navigation,
     prototest,
+    cpreproc,
 };
 
 pub fn main() !void {
@@ -29,6 +30,10 @@ pub fn main() !void {
         .prototest => {
             const pt = @import("explore/protobuf.zig");
             pt.protobufTest();
+        },
+        .cpreproc => {
+            const cpp_xd = @import("explore/comptime_types/cPreProc.zig");
+            cpp_xd.experiment();
         },
     }
 }
