@@ -1,0 +1,66 @@
+
+syntax = "proto3";
+package comfy;
+
+
+
+enum ImgType {
+  NONE = 0;
+  MONO = 1;
+  DUO = 2;
+  RGB = 3;
+  RGBA = 4;
+}
+
+enum InpaintType {
+  SDXL = 0;
+  FLUX = 1;
+  BOTH = 2;
+}
+
+message Empty {}
+
+message Position {
+  int32 x_pos = 1;
+  int32 y_pos = 2;
+}
+
+message PatchPixels {
+  bytes pixels = 1;
+}
+
+message ImgInfo {
+  int32 width = 1;
+  int32 height = 2;
+  ImgType img_type = 3;
+}
+
+message Image {
+  ImgInfo info = 1;
+  bytes pixels = 2;
+}
+
+message InpaintData {
+  Image img = 1;
+  Image mask = 2;
+}
+
+message Options {
+  repeated string prompts = 1;
+  float img_power = 2;
+  int32 seed = 3;
+  InpaintType inpt_flag = 4;
+}
+
+
+service Comfy {
+  rpc SetImage(Image) returns (Empty) {}
+  rpc SetMask(Image) returns (Empty) {}
+  rpc SetOptions(Options) returns (Empty) {}
+  rpc SetCrop(Image) returns (Empty) {}
+  rpc Inpaint(Empty) returns (Image) {}
+  rpc UberInpaint(Empty) returns (Image) {}
+  rpc Img2Img(Empty) returns (Image) {}
+  rpc Txt2Img(Empty) returns (Image) {}
+  rpc Ipnet(Empty) returns (Image) {}
+}

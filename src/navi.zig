@@ -37,6 +37,7 @@ pub fn springy_osclation() !void {
     defer {
         _ = obj_arena.deinit();
         _ = obj_gpa.deinit();
+        _ = fmt_gpa.deinit();
     }
 
     const mm = Memalo{
