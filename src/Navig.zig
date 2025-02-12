@@ -25,36 +25,21 @@ const PhysInprint = phys.PhysInprint;
 
 const ImageBox = @import("ImageBox.zig");
 
-const Memalo = struct {
-    text: Allocator,
-    arean: Allocator,
-};
-
-pub fn springy_osclation() !void {
-    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
-    defer {
-        _ = obj_arena.deinit();
-        _ = obj_gpa.deinit();
-        _ = fmt_gpa.deinit();
-    }
-
-    const mm = Memalo{
-        .text = fmt_gpa.allocator(),
-        .arean = obj_arena.allocator(),
-    };
-
-    try simulation(&mm);
-}
 const input = @import("mods/input.zig");
 const vi2 = math.vi2;
 const vf2 = math.vf2;
 
-fn simulation(aloc: *const Memalo) !void {
-    const arena = aloc.arean;
+const AppMemory = @import("core.zig").AppMamory;
+pub fn program(aloc: *const AppMemory) void {
+    _simulation(aloc) catch {
+        std.debug.print("error cleaning\n", .{});
+    };
+}
+
+fn _simulation(aloc: *const AppMemory) !void {
+    const arena = aloc.arena;
     _ = arena;
-    const text_alloc = aloc.text;
+    const text_alloc = aloc.gpa;
 
     const screenWidth = 1600;
     const screenHeight = 900;

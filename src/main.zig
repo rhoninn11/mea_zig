@@ -1,37 +1,37 @@
 const std = @import("std");
 
 const examples = enum {
-    phxsim,
-    jtinker,
-    navigation,
-    prototest,
-    cpreproc,
+    rl_inertia,
+    rl_navigation,
+    using_json,
+    using_proto,
+    using_cheader,
 };
 
 pub fn main() !void {
-    const selector: examples = .prototest;
+    const selector: examples = .rl_inertia;
+    const AppCore = @import("core.zig");
     switch (selector) {
-        .phxsim => {
-            const sprigy_sim = @import("simulation.zig").springy_osclation;
+        .rl_inertia => {
+            const rl_springs = @import("SpringSim.zig").program;
             std.debug.print("raylib using zig!\n", .{});
-            try sprigy_sim();
+            AppCore.DeployInMemory(rl_springs);
         },
-        .jtinker => {
-            const explore_fn = @import("explore/prompt.zig").fs_explorer;
-            std.debug.print("tinkering around a json!\n", .{});
-            try explore_fn();
-        },
-        .navigation => {
-            const texture_demo = @import("navi.zig").springy_osclation;
+        .rl_navigation => {
+            const rl_devel = @import("Navig.zig").program;
             std.debug.print("Na razie tutaj łatwiej było opracować zamykanie okna" ++
                 "Ale w tutaj przećwiczone zostaną jeszcze eksperymenty z teksturami", .{});
-            try texture_demo();
+            AppCore.DeployInMemory(rl_devel);
         },
-        .prototest => {
+        .using_json => {
+            const explore_fn = @import("explore/prompt.zig").fs_explorer;
+            try explore_fn();
+        },
+        .using_proto => {
             const pt = @import("explore/protobuf.zig");
             try pt.protobufTest();
         },
-        .cpreproc => {
+        .using_cheader => {
             const cpp_xd = @import("explore/comptime_types/cPreProc.zig");
             cpp_xd.experiment();
         },

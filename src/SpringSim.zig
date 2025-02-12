@@ -81,36 +81,30 @@ fn log_slice_info(slice: []f32) void {
 const phys = @import("mods/phys.zig");
 const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
+const Exiter = @import("mods/elements.zig").Exiter;
 
-pub fn springy_osclation() !void {
-    var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const fmt_alloc = fmt_gpa.allocator();
-    defer _ = fmt_gpa.deinit();
-
-    var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
-    const arena = obj_arena.allocator();
-    defer _ = obj_arena.deinit();
-
-    {
-        const info_template = "+++ there is {d} kyes, we need to track for typing\n";
-        const info = try std.fmt.allocPrintZ(fmt_alloc, info_template, .{0});
-        defer fmt_alloc.free(info);
-        std.debug.print("{s}", .{info});
-    }
-
-    try simulation(fmt_alloc, arena);
+const AppMemory = @import("core.zig").AppMamory;
+pub fn program(aloc: *const AppMemory) void {
+    _ = _simulation(aloc) catch {
+        std.debug.print("error cleaning\n", .{});
+    };
 }
 
-fn simulation(text_alloc: Allocator, arena: Allocator) !void {
+fn _simulation(aloc: *const AppMemory) !void {
+    const arena = aloc.arena;
+    const text_alloc = aloc.gpa;
+
     _ = arena;
     const screenWidth = 800;
     const screenHeight = 450;
 
     const tile: [:0]const u8 = "raylib-zig [core] example - basic window";
-
     rl.initWindow(screenWidth, screenHeight, tile.ptr);
     defer rl.closeWindow();
+
+    const corner = math.vf2{ screenWidth, 0 };
+    var exit = Exiter.spawn(corner, rl.KeyboardKey.key_escape);
+    exit.selfReference();
 
     var tmln = try Timeline.basic();
     // rl.setTargetFPS(59);
@@ -157,9 +151,6 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     var inertia_end = Iner.spawn(lin_spc.b);
     var pointer_inert = Iner.spawn(vf2{ 0, 0 });
 
-    var exit_key = KbKey.init(rl.KeyboardKey.key_escape, 0);
-    const exit_signal = &exit_key.hold.base;
-
     var phx = PhysInprint{};
     phx.reecalc();
     var pointer_phx = PhysInprint.new(5, 0.33, 1);
@@ -173,7 +164,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
     pointer_inert.phx = &pointer_phx;
 
     var sldr = Slider{ .max = 1 };
-    while (exit_signal.get() == false) {
+    while (exit.toContinue()) {
         // exit_key.check_input();
         const delta_ms = try tmln.tickMs();
         life_time_ms += @floatCast(delta_ms);
@@ -198,6 +189,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         my_sim.update(delta_ms);
         my_sim.sample_circles(lin_spc);
         my_sim.draw();
+        exit.update(delta_ms);
 
         repr.frame(lin_spc.sample(0), sldr.pos == 0);
         repr.frame(lin_spc.sample(1), sldr.pos == 1);
@@ -211,5 +203,7 @@ fn simulation(text_alloc: Allocator, arena: Allocator) !void {
         const pointer_pos = rl.Vector3.init(tmp[0], tmp[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
         // img_box.drawRepr();
+
+        exit.draw();
     }
 }

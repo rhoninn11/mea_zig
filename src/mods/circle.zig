@@ -4,7 +4,7 @@ const std = @import("std");
 const Osc = @import("osc.zig").Osc;
 const Signal = @import("input.zig").Signal;
 
-const THEME = @import("core/repr.zig").Theme;
+pub const THEME = @import("core/repr.zig").Theme;
 
 fn color_switch(b: bool) rl.Color {
     return switch (b) {
