@@ -125,7 +125,7 @@ fn runSimInMemory(mem: *const AppMemory) !void {
 fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     _ = arena;
-    const text_alloc = aloc.gpa;
+    // const text_alloc = aloc.gpa;
 
     // render_model();
 
@@ -150,6 +150,8 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     var imgB = ImageBox{};
     imgB.imageLoadTry();
 
+    var text_memory: [1024]u8 = undefined;
+    const text_buffer = text_memory[0..];
     // TODO: będę tu testował rendering obrazka
     // na przykład tworząc prosty system cząstekowy
     // gdzie particle sobie oscylują w różnych miejscach
@@ -164,9 +166,10 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
         for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
         exit.update(delta_ms);
 
-        const info_template: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
-        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{ delta_ms, 1000 / delta_ms });
-        defer text_alloc.free(info);
+        const info_tmpl: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
+        // const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{});
+        const info_text = try std.fmt.bufPrintZ(text_buffer, info_tmpl, .{ delta_ms, 1000 / delta_ms });
+        // defer text_alloc.free(info);
 
         rl.beginDrawing();
 
@@ -178,7 +181,7 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
 
         repr.frame(mouse_pose, false);
-        rl.drawText(info, 50, 50, 20, THEME[1]);
+        rl.drawText(info_text, 50, 50, 20, THEME[1]);
         imgB.repr();
 
         rl.endDrawing();
