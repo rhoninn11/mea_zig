@@ -9,7 +9,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_inertia;
+    const selector: examples = .rl_navigation;
     const AppCore = @import("core.zig");
     switch (selector) {
         .rl_inertia => {
@@ -19,8 +19,7 @@ pub fn main() !void {
         },
         .rl_navigation => {
             const rl_devel = @import("Navig.zig").program;
-            std.debug.print("Na razie tutaj łatwiej było opracować zamykanie okna" ++
-                "Ale w tutaj przećwiczone zostaną jeszcze eksperymenty z teksturami", .{});
+            std.debug.print("raylib experiments", .{});
             AppCore.DeployInMemory(rl_devel);
         },
         .using_json => {
