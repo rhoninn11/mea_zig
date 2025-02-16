@@ -36,18 +36,41 @@ pub fn program(aloc: *const AppMemory) void {
     };
 }
 
-// TODO: that would be cool if i could render the same content on different mediums
-fn render_model() void {
+const RLWindow = struct {
+    corner: vf2,
+    size: vf2,
+};
+
+const RenderMedium = union(enum) {
+    window: *RLWindow,
+    target: rl.RenderTexture,
+
+    pub fn begin(self: RenderMedium) void {
+        switch (self) {
+            RenderMedium.window => rl.beginDrawing(),
+            RenderMedium.target => |rtxt| rl.beginTextureMode(rtxt),
+        }
+    }
+
+    pub fn end(self: RenderMedium) void {
+        switch (self) {
+            RenderMedium.window => rl.endDrawing(),
+            RenderMedium.target => rl.endTextureMode(),
+        }
+    }
+};
+
+fn render_model() !void {
     const img_size = 1344;
-    var rt2d = rl.RenderTexture2D.init(img_size, img_size);
-    defer rt2d.unload();
+    var on_medium: RenderMedium = RenderMedium{
+        .target = rl.RenderTexture2D.init(img_size, img_size),
+    };
+    defer on_medium.target.unload();
     // const textTo: [1024]u8 = undefined;
     // const textTo1: []u8 = textTo[0..];
 
-    var model = rl.loadModel("fs/sample/StainedGlassLamp.gltf");
+    var model = rl.loadModel("assets/hand.glb");
     defer model.unload();
-
-    std.debug.print("+++ model has {d} meshes and {d} materials", .{ model.meshCount, model.materialCount });
 
     const center = rl.Vector3.init(0, 0, 0);
     var camera = rl.Camera{
@@ -62,51 +85,32 @@ fn render_model() void {
     const camera_pos = rl.Vector3.init(2, 0.5, 0);
     camera.position = camera_pos;
 
-    rt2d.begin();
-    defer rt2d.end();
+    var fmt_memory: [1024]u8 = undefined;
+    const fmt_buf = fmt_memory[0..];
+    const fname_fmt = "fs/render_viwe_{d}.png";
+    {
+        on_medium.begin();
+        defer on_medium.end();
 
-    // # region update
-    rl.updateCamera(&camera, rl.CameraMode.camera_custom);
-    // # region render
-    rl.beginMode3D(camera);
-    defer rl.endMode3D();
+        // # region update
+        rl.updateCamera(&camera, rl.CameraMode.camera_custom);
+        // # region render
+        rl.beginMode3D(camera);
+        defer rl.endMode3D();
 
-    rl.clearBackground(rl.Color.white);
+        rl.clearBackground(rl.Color.white);
 
-    rl.drawModel(model, center, 3, rl.Color.gray);
+        rl.drawModel(model, center, 1, rl.Color.gray);
 
-    var img = rl.loadImageFromTexture(rt2d.texture);
-    defer img.unload();
-    img.flipVertical();
+        var img = rl.loadImageFromTexture(on_medium.target.texture);
+        defer img.unload();
+        img.flipVertical();
 
-    const file_name = "fs/render_viwe_{d}.png";
-    // std.fmt.bufPrintZ(textTo1, "fs/render_viwe_{d}.png", .{0});
-    _ = img.exportToFile(file_name);
+        const i = 0;
+        const fname = try std.fmt.bufPrintZ(fmt_buf, fname_fmt, .{i});
+        _ = img.exportToFile(fname);
+    }
 }
-
-const RLWindow = struct {
-    corner: vf2,
-    size: vf2,
-};
-
-const RenderMedium = union(enum) {
-    window: RLWindow,
-    target: rl.RenderTexture,
-
-    pub fn begin(self: RenderMedium) void {
-        switch (self) {
-            RenderMedium.window => rl.beginDrawing(),
-            RenderMedium.target => |rtxt| rl.beginTextureMode(rtxt),
-        }
-    }
-
-    pub fn end(self: RenderMedium) void {
-        switch (self) {
-            RenderMedium.window => rl.beginDrawing(),
-            RenderMedium.target => |rtxt| rl.beginTextureMode(rtxt),
-        }
-    }
-};
 
 fn runSimInMemory(mem: *const AppMemory) !void {
     const screenWidth = 1600;
@@ -116,7 +120,7 @@ fn runSimInMemory(mem: *const AppMemory) !void {
         .size = vf2{ screenWidth, screenWidth },
     };
 
-    const title: [:0]const u8 = "+++ Runing simulation in window +++";
+    const title: [:0]const u8 = "+++ Runing simulation in a window +++";
     rl.initWindow(screenWidth, screenHeight, title.ptr);
     defer rl.closeWindow();
     try _simulation(mem, &window);
@@ -126,8 +130,9 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     _ = arena;
     // const text_alloc = aloc.gpa;
+    var on_medium: RenderMedium = RenderMedium{ .window = win };
 
-    // render_model();
+    try render_model();
 
     var tmln = try Timeline.basic();
     var life_time_ms: f64 = 0;
@@ -150,8 +155,8 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     var imgB = ImageBox{};
     imgB.imageLoadTry();
 
-    var text_memory: [1024]u8 = undefined;
-    const text_buffer = text_memory[0..];
+    var fmt_memory: [1024]u8 = undefined;
+    const fmt_buf = fmt_memory[0..];
     // TODO: będę tu testował rendering obrazka
     // na przykład tworząc prosty system cząstekowy
     // gdzie particle sobie oscylują w różnych miejscach
@@ -159,31 +164,33 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     while (exit.toContinue()) {
         // exit_key.check_input();
         const delta_ms = try tmln.tickMs();
+        const fps = 1000 / delta_ms;
         life_time_ms += @floatCast(delta_ms);
 
         const mouse_pose = input.sample_mouse();
 
-        for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
+        for (&skill_keys) |*skill_key| skill_key.collectiInput();
+        exit.collectInput();
+        const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
+
+        // for(& skill_keys) | *|
         exit.update(delta_ms);
 
         const info_tmpl: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
-        // const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{});
-        const info_text = try std.fmt.bufPrintZ(text_buffer, info_tmpl, .{ delta_ms, 1000 / delta_ms });
+        const info_text = try std.fmt.bufPrintZ(fmt_buf, info_tmpl, .{ delta_ms, fps });
         // defer text_alloc.free(info);
 
-        rl.beginDrawing();
+        on_medium.begin();
+        defer on_medium.end();
 
         rl.clearBackground(THEME[0]);
         exit.draw();
         simple_benchmark.draw();
 
-        const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
 
         repr.frame(mouse_pose, false);
         rl.drawText(info_text, 50, 50, 20, THEME[1]);
         imgB.repr();
-
-        rl.endDrawing();
     }
 }

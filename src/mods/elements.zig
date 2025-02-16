@@ -40,8 +40,12 @@ pub const Exiter = struct {
         self.exit_delay.to_track = self.trig_delay.sigRef();
     }
 
+    pub fn collectInput(self: *Self) void {
+        self.key.collectiInput();
+    }
+
     pub fn update(self: *Self, delta_ms: f32) void {
-        self.key.check_input(delta_ms);
+        self.key.update(delta_ms);
         self.trig_delay.update(delta_ms);
         self.exit_delay.update(delta_ms);
 

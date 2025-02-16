@@ -92,7 +92,6 @@ pub fn program(aloc: *const AppMemory) void {
 
 fn _simulation(aloc: *const AppMemory) !void {
     const arena = aloc.arena;
-    const text_alloc = aloc.gpa;
 
     _ = arena;
     const screenWidth = 800;
@@ -163,6 +162,10 @@ fn _simulation(aloc: *const AppMemory) !void {
     for (inerts) |singl_one| singl_one.phx = &phx;
     pointer_inert.phx = &pointer_phx;
 
+    const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
+    var fmt_memory: [1024]u8 = undefined;
+    const fmt_buf = fmt_memory[0..];
+
     var sldr = Slider{ .max = 1 };
     while (exit.toContinue()) {
         // exit_key.check_input();
@@ -172,17 +175,14 @@ fn _simulation(aloc: *const AppMemory) !void {
         const mouse_pose = input.sample_mouse();
         pointer_inert.setTarget(mouse_pose);
 
-        for (&letter_keys) |*key_from_kb| key_from_kb.check_input(delta_ms);
-        for (&skill_keys) |*skill_key| skill_key.check_input(delta_ms);
+        for (&letter_keys) |*key_from_kb| key_from_kb.collectiInput();
+        for (&skill_keys) |*skill_key| skill_key.collectiInput();
+        exit.collectInput();
+
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
         if (skill_signals[0].get()) inerts[sldr.pos].setTarget(mouse_pose);
 
-        rl.beginDrawing();
-        defer rl.endDrawing();
-        rl.clearBackground(THEME[0]);
-
         for (inerts) |inertia_point| inertia_point.simulate(delta_ms);
-
         lin_spc.a = inerts[0].getPos();
         lin_spc.b = inerts[1].getPos();
 
@@ -191,12 +191,14 @@ fn _simulation(aloc: *const AppMemory) !void {
         my_sim.draw();
         exit.update(delta_ms);
 
+        const info = try std.fmt.bufPrintZ(fmt_buf, info_template, .{delta_ms});
+
+        rl.beginDrawing();
+        defer rl.endDrawing();
+
+        rl.clearBackground(THEME[0]);
         repr.frame(lin_spc.sample(0), sldr.pos == 0);
         repr.frame(lin_spc.sample(1), sldr.pos == 1);
-
-        const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
-        const info = try std.fmt.allocPrintZ(text_alloc, info_template, .{delta_ms});
-        defer text_alloc.free(info);
 
         rl.drawText(info, 50, 50, 20, THEME[1]);
         const tmp = pointer_inert.getPos();

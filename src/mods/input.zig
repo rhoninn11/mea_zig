@@ -62,8 +62,11 @@ pub const KbKey = struct {
         };
     }
 
-    pub fn check_input(self: *KbKey, delta_ms: f32) void {
+    pub fn collectiInput(self: *Self) void {
         self.hold.base.set(rl.isKeyDown(self.key));
+    }
+
+    pub fn update(self: *Self, delta_ms: f32) void {
         self.motion.update(&self.hold.base, delta_ms);
     }
 
