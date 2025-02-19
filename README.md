@@ -20,3 +20,10 @@ ln -s $PWD/lib_web/ $PWD/vite_demo/src/lib
 
 zig build -Dalt --prefix web_demo/prebuilt
 python3 -m http.server
+
+### Lets goooo:
+No dobra myślę, że po trzech miesiącach mam już takie mniej więcej rozeznanie
+co jest możliwe w tym języku jeżeli chodzi o aplikację działającą na systemie
+operacyjnym.
+
+On nawet się szybko kompiluje tej

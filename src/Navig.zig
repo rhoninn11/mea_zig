@@ -147,7 +147,7 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     var exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
-    const dot_number: u32 = 1024;
+    const dot_number: u32 = 256;
 
     var simple_benchmark = elems.SurfaceInfo(dot_number){ .tiles = undefined };
     simple_benchmark.benchGrid(win.size);

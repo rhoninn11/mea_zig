@@ -1,8 +1,9 @@
 const std = @import("std");
 const rl = @import("raylib");
 const math = @import("core/math.zig");
-const repr = @import("core/repr.zig");
 const input = @import("input.zig");
+
+const repr = @import("core/repr.zig");
 
 const vf2 = math.vf2;
 
@@ -66,13 +67,27 @@ pub const Exiter = struct {
     }
 };
 
+pub fn GridSurface(x: u32, y: 32) type {
+    return SurfaceInfo(x * y);
+}
+
 pub fn SurfaceInfo(n: u32) type {
+    return _SurfaceInfo(n, repr.Tile);
+}
+
+fn _SurfaceInfo(n: u32, kind_of: type) type {
+    const sz = @sizeOf(kind_of);
+    std.debug.assert(sz <= 64);
+    // @compileLog("!!! For assert validation if compile fail !!! ", n);
+    std.debug.assert(n <= 256);
+
     return struct {
         const Self = @This();
         const rows = 32;
         const cols = n / Self.rows;
 
-        tiles: [n]repr.Tile,
+        // tiles: [n]repr.Tile,
+        tiles: [n]kind_of = undefined,
 
         pub fn draw(self: *Self) void {
             for (&self.tiles) |*tile| repr.tBlob(tile.*);

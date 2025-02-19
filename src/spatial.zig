@@ -74,6 +74,15 @@ pub const LinSpace = struct {
     }
 };
 
+const LineTypes = enum {
+    Full,
+    LTip,
+    RTip,
+    NoTip,
+};
+
+pub fn line__() LineOpts {}
+
 pub fn LinStage(comptime len: u32) type {
     const no_tips = LineOpts{ .len = len, .first = false, .last = false };
     const with_tips = LineOpts{ .len = len, .first = true, .last = true };
