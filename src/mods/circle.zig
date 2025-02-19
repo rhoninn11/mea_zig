@@ -14,8 +14,8 @@ fn color_switch(b: bool) rl.Color {
 }
 
 const math = @import("core/math.zig");
-const vi2 = math.vi2;
-const vf2 = math.vf2;
+const iv2 = math.iv2;
+const fv2 = math.fv2;
 const i2f = math.i2f;
 
 fn upVec() rl.Vector3 {
@@ -25,30 +25,26 @@ fn upVec() rl.Vector3 {
 pub const Circle = struct {
     const Self = @This();
 
-    pos: vi2 = .{ 0, 0 },
+    posf: fv2 = @splat(0),
     color: rl.Color = rl.Color.maroon,
-    height: i32 = 100,
+    below: fv2 = fv2{ 0, 100 },
     sig: ?*Signal = null,
 
-    pub fn setPos(self: *Self, new_pos: vi2) void {
-        self.pos = new_pos;
+    pub fn setPos(self: *Self, new_pos: fv2) void {
+        self.posf = new_pos;
     }
 
     pub fn draw(self: Self, osc: Osc) void {
-        const osc_pos_f = osc.smple2D() * vf2{ 2.22, 2 };
-        const osc_pos_i = vi2{ @intFromFloat(osc_pos_f[0]), @intFromFloat(osc_pos_f[1]) };
+        const osc_pos = osc.smple2D() * fv2{ 2.22, 2 };
 
-        const circle_pos = self.pos + osc_pos_i;
-        var shadow_pos = self.pos + vi2{ 0, self.height };
+        const circle_pos_f = self.posf + osc_pos;
+        var shadow_pos = self.posf + osc_pos * math.axisX;
+        shadow_pos += self.below;
 
-        const mask = vi2{ 1, 0 };
-        shadow_pos += osc_pos_i * mask;
-
-        // rl.drawCircle(circle_pos[0], circle_pos[1], 20, self.color);
-        const pos3D = rl.Vector3.init(i2f(circle_pos[0]), i2f(circle_pos[1]), 0);
-
-        rl.drawCircle3D(pos3D, 20, upVec(), 0, self.color);
-        rl.drawEllipse(shadow_pos[0], shadow_pos[1], 25, 5, THEME[1]);
+        const _3d_pos = rl.Vector3.init(circle_pos_f[0], circle_pos_f[1], 0);
+        rl.drawCircle3D(_3d_pos, 20, upVec(), 0, self.color);
+        const _2d_pos = math.fviv(shadow_pos);
+        rl.drawEllipse(_2d_pos[0], _2d_pos[1], 25, 5, THEME[1]);
     }
 
     pub fn update(self: *Self) void {

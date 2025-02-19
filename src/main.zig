@@ -9,7 +9,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_navigation;
+    const selector: examples = .rl_inertia;
     const AppCore = @import("core.zig");
     switch (selector) {
         .rl_inertia => {

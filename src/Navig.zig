@@ -26,8 +26,8 @@ const PhysInprint = phys.PhysInprint;
 const ImageBox = @import("ImageBox.zig");
 
 const input = @import("mods/input.zig");
-const vi2 = math.vi2;
-const vf2 = math.vf2;
+const vi2 = math.iv2;
+const vf2 = math.fv2;
 
 const AppMemory = @import("core.zig").AppMamory;
 pub fn program(aloc: *const AppMemory) void {

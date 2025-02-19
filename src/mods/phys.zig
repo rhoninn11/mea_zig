@@ -1,5 +1,5 @@
 const std = @import("std");
-const vf2 = @import("core/math.zig").vf2;
+const vf2 = @import("core/math.zig").fv2;
 
 fn asV(v: anytype) vf2 {
     return @splat(v);

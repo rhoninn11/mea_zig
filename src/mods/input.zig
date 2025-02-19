@@ -179,10 +179,10 @@ test "comptime len calc" {
 
 const math = @import("core/math.zig");
 const i2f = math.i2f;
-pub fn sample_mouse() math.vf2 {
+pub fn sample_mouse() math.fv2 {
     const mx = rl.getMouseX();
     const my = rl.getMouseY();
 
-    const point_by_mouse = math.vf2{ i2f(mx), i2f(my) };
+    const point_by_mouse = math.fv2{ i2f(mx), i2f(my) };
     return point_by_mouse;
 }

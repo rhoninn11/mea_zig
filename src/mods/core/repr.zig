@@ -3,7 +3,7 @@ const rl = @import("raylib");
 
 const math = @import("math.zig");
 
-const fv2 = math.vf2;
+const fv2 = math.fv2;
 const f2i = math.f2i;
 
 pub const Theme = [_]rl.Color{ rl.Color.black, rl.Color.beige };
