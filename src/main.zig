@@ -11,13 +11,8 @@ const examples = enum {
 };
 
 pub fn main() !void {
-<<<<<<< HEAD
     const selector: examples = .rl_unified;
     const AppCore = @import("mess/core.zig");
-=======
-    const selector: examples = .using_fs;
-    const AppCore = @import("core.zig");
->>>>>>> origin
     switch (selector) {
         .rl_inertia => {
             const rl_springs = @import("SpringSim.zig").program;
