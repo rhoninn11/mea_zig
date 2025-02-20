@@ -1,14 +1,15 @@
 const std = @import("std");
 const rl = @import("raylib");
 const math = @import("core/math.zig");
-const repr = @import("core/repr.zig");
 const input = @import("input.zig");
 
-const vf2 = math.vf2;
+const repr = @import("core/repr.zig");
+
+const vf2 = math.fv2;
 
 pub const Exiter = struct {
     const Self = @This();
-    pos: math.vf2,
+    pos: math.fv2,
     key: input.KbKey,
     sigRef: *input.Signal,
     trig_delay: input.Delay,
@@ -18,7 +19,7 @@ pub const Exiter = struct {
     const minSize: f32 = 50;
     const deltaSize: f32 = 1;
 
-    pub fn spawn(at: math.vf2, with: rl.KeyboardKey) Self {
+    pub fn spawn(at: math.fv2, with: rl.KeyboardKey) Self {
         const key = input.KbKey.init(with, 0);
         var mock = input.Signal{};
         const trig_delay = input.Delay{ .to_track = &mock, .ms_delay = 350 };
@@ -66,19 +67,41 @@ pub const Exiter = struct {
     }
 };
 
+pub fn GridSurface(x: u32, y: 32) type {
+    return SurfaceInfo(x * y);
+}
+
 pub fn SurfaceInfo(n: u32) type {
+    return _SurfaceInfo(n, repr.Tile);
+}
+
+pub fn SurfaceBasedOnFile(file: []const u8) type {
+    const R = struct { p: u8 };
+    _ = file;
+    // hmmm, ciekawe czy mółbym sobie odczytać taki parametr z pliku
+    // to może być jakiś json, albo plik systemu, który udaje json xD
+    return R;
+}
+
+fn _SurfaceInfo(n: u32, kind_of: type) type {
+    const sz = @sizeOf(kind_of);
+    std.debug.assert(sz <= 64);
+    // @compileLog("!!! For assert validation if compile fail !!! ", n);
+    std.debug.assert(n <= 256);
+
     return struct {
         const Self = @This();
         const rows = 32;
         const cols = n / Self.rows;
 
-        tiles: [n]repr.Tile,
+        // tiles: [n]repr.Tile,
+        tiles: [n]kind_of = undefined,
 
         pub fn draw(self: *Self) void {
             for (&self.tiles) |*tile| repr.tBlob(tile.*);
         }
 
-        pub fn benchGrid(self: *Self, size: math.vf2) void {
+        pub fn benchGrid(self: *Self, size: math.fv2) void {
             const Rand = std.rand.DefaultPrng;
             var _rng = Rand.init(0);
             var rng = _rng.random();

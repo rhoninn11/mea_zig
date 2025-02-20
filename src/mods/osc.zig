@@ -1,6 +1,6 @@
 const std = @import("std");
 const math = @import("core/math.zig");
-const vf2 = math.vf2;
+const vf2 = math.fv2;
 
 pub const Osc = struct {
     amp: f32 = 20,

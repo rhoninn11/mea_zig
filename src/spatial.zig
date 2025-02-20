@@ -53,33 +53,32 @@ test "linProg test" {
 }
 
 const f2i = math.f2i;
-const vi2 = math.vi2;
-const vf2 = math.vf2;
+const vi2 = math.iv2;
+const vf2 = math.fv2;
 
-pub const LinSpace = struct {
+pub const DynLinSpace = struct {
     a: vf2 = @splat(0),
     b: vf2 = @splat(0),
 
-    pub fn sample(self: LinSpace, cords: f32) vf2 {
+    pub fn sample(self: DynLinSpace, cords: f32) vf2 {
         const fac: vf2 = @splat(1 - cords);
         const rest: vf2 = @splat(cords);
 
         return self.a * fac + self.b * rest;
     }
-
-    pub fn sample_i(self: LinSpace, cords: f32) vi2 {
-        // std.debug.print("value is: {d}\n", .{cords});
-        const f_val = self.sample(cords);
-        return vi2{ f2i(f_val[0]), f2i(f_val[1]) };
-    }
 };
 
-pub fn LinStage(comptime len: u32) type {
+pub const LinePreset = enum {
+    Full,
+    NoTip,
+};
+
+pub fn LinStage(comptime len: u32, kind: LinePreset) []f32 {
     const no_tips = LineOpts{ .len = len, .first = false, .last = false };
     const with_tips = LineOpts{ .len = len, .first = true, .last = true };
 
-    return struct {
-        pub const end2end: []const f32 = &line1D(with_tips);
-        pub const middle: []const f32 = &line1D(no_tips);
-    };
+    switch (kind) {
+        LinePreset.Full => return &line1D(with_tips),
+        LinePreset.NoTip => return &line1D(no_tips),
+    }
 }

@@ -6,6 +6,7 @@ const repr = @import("mods/core/repr.zig");
 
 const input = @import("mods/input.zig");
 const spt = @import("spatial.zig");
+const LinePreset = spt.LinePreset;
 
 const Timeline = @import("mods/time.zig").Timeline;
 
@@ -18,30 +19,31 @@ const Allocator = std.mem.Allocator;
 const Signal = input.Signal;
 const KbKey = input.KbKey;
 
-const vi2 = math.vi2;
-const vf2 = math.vf2;
+const vi2 = math.iv2;
+const vf2 = math.fv2;
 
-const LinSpace = spt.LinSpace;
+const LinSpace = spt.DynLinSpace;
 const SpaceSim = struct {
     const Self = @This();
     crcls: []Circle,
     oscs: []Osc,
-    prog: []const f32,
+    progress_bar: []f32,
     len: u8,
+    dyn_space: *spt.DynLinSpace,
 
     fn init_phase(self: Self) void {
-        for (self.prog, self.oscs) |prog, *osc| {
+        for (self.progress_bar, self.oscs) |prog, *osc| {
             const phase = prog * 6;
             osc.phase = phase;
         }
     }
 
-    fn sample_circles(self: Self, lin_space: LinSpace) void {
-        for (self.prog, self.crcls) |prog, *circle| {
+    fn sample_circles(self: *const Self) void {
+        for (self.progress_bar, self.crcls) |pb, *circle| {
 
             // std.debug.print("value is: {d}\n", .{cords});
-            const spot = lin_space.sample_i(prog);
-            circle.setPos(spot);
+            const sim_spot = self.dyn_space.sample(pb);
+            circle.setPos(sim_spot);
         }
     }
 
@@ -54,6 +56,7 @@ const SpaceSim = struct {
     fn update(self: *Self, td: f32) void {
         for (self.oscs) |*osc| osc.update(td);
         for (self.crcls) |*crcl| crcl.update();
+        self.sample_circles();
     }
 };
 
@@ -101,7 +104,7 @@ fn _simulation(aloc: *const AppMemory) !void {
     rl.initWindow(screenWidth, screenHeight, tile.ptr);
     defer rl.closeWindow();
 
-    const corner = math.vf2{ screenWidth, 0 };
+    const corner = math.fv2{ screenWidth, 0 };
     var exit = Exiter.spawn(corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
@@ -127,22 +130,22 @@ fn _simulation(aloc: *const AppMemory) !void {
     const spot_a: vi2 = @splat(100);
     const spot_b: vi2 = vi2{ 700, 100 };
 
-    const stage = spt.LinStage(m);
-    var lin_spc = spt.LinSpace{
+    // można by zaplanować ograniczoną ilość takich segmentów
+    var lin_spc = spt.DynLinSpace{
         .a = spot_a,
         .b = spot_b,
     };
 
-    // można by zaplanować ograniczoną ilość takich segmentów
     var my_sim = SpaceSim{
+        .progress_bar = spt.LinStage(m, LinePreset.NoTip),
+        .dyn_space = &lin_spc,
         .crcls = cirlce_arr[0..m],
         .oscs = osc_arr[0..m],
-        .prog = stage.middle,
         .len = m,
     };
 
     my_sim.init_phase();
-    my_sim.sample_circles(lin_spc);
+    my_sim.update(0);
 
     var life_time_ms: f64 = 0;
 

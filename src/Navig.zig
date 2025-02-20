@@ -26,8 +26,8 @@ const PhysInprint = phys.PhysInprint;
 const ImageBox = @import("ImageBox.zig");
 
 const input = @import("mods/input.zig");
-const vi2 = math.vi2;
-const vf2 = math.vf2;
+const vi2 = math.iv2;
+const vf2 = math.fv2;
 
 const AppMemory = @import("core.zig").AppMamory;
 pub fn program(aloc: *const AppMemory) void {
@@ -147,7 +147,7 @@ fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
     var exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
-    const dot_number: u32 = 1024;
+    const dot_number: u32 = 256;
 
     var simple_benchmark = elems.SurfaceInfo(dot_number){ .tiles = undefined };
     simple_benchmark.benchGrid(win.size);
