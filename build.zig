@@ -95,7 +95,7 @@ pub fn native_app(b: *std.Build, main_file: []const u8) !void {
 
     const compile_paths = compile_tupla(blu, src_file_path);
     for (compile_paths) |compile| {
-        compile.addIncludePath(b.path("src/explore/comptime_types/include/"));
+        compile.addIncludePath(b.path("src/explore/precompile/include/"));
         add_raylib(blu, compile);
     }
     const exe = compile_paths[0];
