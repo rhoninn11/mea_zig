@@ -7,11 +7,17 @@ const examples = enum {
     using_json,
     using_proto,
     using_cheader,
+    using_fs,
 };
 
 pub fn main() !void {
+<<<<<<< HEAD
     const selector: examples = .rl_unified;
     const AppCore = @import("mess/core.zig");
+=======
+    const selector: examples = .using_fs;
+    const AppCore = @import("core.zig");
+>>>>>>> origin
     switch (selector) {
         .rl_inertia => {
             const rl_springs = @import("SpringSim.zig").program;
@@ -38,6 +44,10 @@ pub fn main() !void {
         .using_cheader => {
             const cpp_xd = @import("explore/precompile/cPreProc.zig");
             cpp_xd.experiment();
+        },
+        .using_fs => {
+            const fs_exp = @import("explore/filesystem.zig");
+            try fs_exp.fs_explorer();
         },
     }
 }
