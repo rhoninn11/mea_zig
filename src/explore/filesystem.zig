@@ -77,7 +77,7 @@ fn jsonCreateAndSave() !void {
     std.debug.print("+++ what information is that {}\n", .{res});
 }
 
-const ser = @import("serialization.zig");
+// const ser = @import("serialization.zig");
 
 fn promptFromJson() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -87,10 +87,27 @@ fn promptFromJson() !void {
     const prompt_file = try projFile(alloc, "prompt.json");
     defer alloc.free(prompt_file);
 
-    try ser.openPrompt(alloc, prompt_file);
+    // try ser.openPrompt(alloc, prompt_file)
+}
+
+fn envRefererence(alloc: std.mem.Allocator) !void {
+    // const name = "TRIDE";
+
+    var env = try std.process.getEnvMap(alloc);
+    defer env.deinit();
+
+    var iter = env.iterator();
+    std.debug.print("+++ active env vars:\n", .{});
+    while (iter.next()) |entry| {
+        std.debug.print("{s: <30}: {s}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
+    }
 }
 
 pub fn fs_explorer() !void {
-    try jsonCreateAndSave();
-    try promptFromJson();
+    // try jsonCreateAndSave();
+    // try promptFromJson();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    try envRefererence(gpa.allocator());
 }

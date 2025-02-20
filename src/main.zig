@@ -6,10 +6,11 @@ const examples = enum {
     using_json,
     using_proto,
     using_cheader,
+    using_fs,
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_navigation;
+    const selector: examples = .using_fs;
     const AppCore = @import("core.zig");
     switch (selector) {
         .rl_inertia => {
@@ -33,6 +34,10 @@ pub fn main() !void {
         .using_cheader => {
             const cpp_xd = @import("explore/comptime_types/cPreProc.zig");
             cpp_xd.experiment();
+        },
+        .using_fs => {
+            const fs_exp = @import("explore/filesystem.zig");
+            try fs_exp.fs_explorer();
         },
     }
 }
