@@ -73,12 +73,15 @@ pub const LinePreset = enum {
     NoTip,
 };
 
-pub fn LinStage(comptime len: u32, kind: LinePreset) []f32 {
+pub fn LinStage(comptime len: u32, comptime kind: LinePreset) [len]f32 {
     const no_tips = LineOpts{ .len = len, .first = false, .last = false };
     const with_tips = LineOpts{ .len = len, .first = true, .last = true };
 
+    comptime var setup: LineOpts = undefined;
     switch (kind) {
-        LinePreset.Full => return &line1D(with_tips),
-        LinePreset.NoTip => return &line1D(no_tips),
+        LinePreset.Full => setup = with_tips,
+        LinePreset.NoTip => setup = no_tips,
     }
+
+    return line1D(setup);
 }

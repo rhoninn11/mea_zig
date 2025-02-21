@@ -27,7 +27,7 @@ const SpaceSim = struct {
     const Self = @This();
     crcls: []Circle,
     oscs: []Osc,
-    progress_bar: []f32,
+    progress_bar: []const f32,
     len: u8,
     dyn_space: *spt.DynLinSpace,
 
@@ -86,7 +86,7 @@ const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
 const Exiter = @import("mods/elements.zig").Exiter;
 
-const AppMemory = @import("core.zig").AppMamory;
+const AppMemory = @import("mess/core.zig").AppMemory;
 pub fn program(aloc: *const AppMemory) void {
     _ = _simulation(aloc) catch {
         std.debug.print("error cleaning\n", .{});
@@ -114,8 +114,8 @@ fn _simulation(aloc: *const AppMemory) !void {
     const letters = "qwertyuiopasdfghjklzxcvbnm";
     var letter_keys = input.obtain_keys(letters.len, letters);
 
-    const n = 5;
     const action_key = "qwert";
+    const n: comptime_int = action_key.len;
     var skill_keys = input.obtain_keys(action_key.len, action_key);
 
     const m = n + 6;
@@ -136,9 +136,10 @@ fn _simulation(aloc: *const AppMemory) !void {
         .b = spot_b,
     };
 
+    var spread = spt.LinStage(m, LinePreset.NoTip);
     var my_sim = SpaceSim{
-        .progress_bar = spt.LinStage(m, LinePreset.NoTip),
         .dyn_space = &lin_spc,
+        .progress_bar = spread[0..m],
         .crcls = cirlce_arr[0..m],
         .oscs = osc_arr[0..m],
         .len = m,
@@ -190,7 +191,7 @@ fn _simulation(aloc: *const AppMemory) !void {
         lin_spc.b = inerts[1].getPos();
 
         my_sim.update(delta_ms);
-        my_sim.sample_circles(lin_spc);
+        // my_sim.sample_circles(lin_spc);
         my_sim.draw();
         exit.update(delta_ms);
 

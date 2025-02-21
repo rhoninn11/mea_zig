@@ -7,21 +7,9 @@ const elems = @import("mods/elements.zig");
 const Allocator = std.mem.Allocator;
 const Timeline = @import("mods/time.zig").Timeline;
 
-const Vec2i = @import("mods/core/math.zig").Vec2i;
 const THEME = @import("mods/core/repr.zig").Theme;
 
-fn log_slice_info(slice: []f32) void {
-    std.debug.print("---\n", .{});
-    for (slice) |num_val| {
-        std.debug.print(" num value is: {d:.2}\n", .{num_val});
-    }
-}
-
 const spt = @import("spatial.zig");
-
-const phys = @import("mods/phys.zig");
-const Iner = phys.Inertia;
-const PhysInprint = phys.PhysInprint;
 
 const ImageBox = @import("ImageBox.zig");
 
@@ -29,14 +17,9 @@ const input = @import("mods/input.zig");
 const vi2 = math.iv2;
 const vf2 = math.fv2;
 
-const AppMemory = @import("core.zig").AppMamory;
-pub fn program(aloc: *const AppMemory) void {
-    runSimInMemory(aloc) catch {
-        std.debug.print("error cleaning\n", .{});
-    };
-}
+const AppMemory = @import("mess/core.zig").AppMemory;
 
-const RLWindow = struct {
+pub const RLWindow = struct {
     corner: vf2,
     size: vf2,
 };
@@ -60,79 +43,9 @@ const RenderMedium = union(enum) {
     }
 };
 
-fn render_model() !void {
-    const img_size = 1344;
-    var on_medium: RenderMedium = RenderMedium{
-        .target = rl.RenderTexture2D.init(img_size, img_size),
-    };
-    defer on_medium.target.unload();
-    // const textTo: [1024]u8 = undefined;
-    // const textTo1: []u8 = textTo[0..];
-
-    var model = rl.loadModel("assets/hand.glb");
-    defer model.unload();
-
-    const center = rl.Vector3.init(0, 0, 0);
-    var camera = rl.Camera{
-        .up = rl.Vector3.init(0, 1, 0),
-        .position = center,
-        .target = center,
-        .fovy = 60,
-        .projection = rl.CameraProjection.camera_perspective,
-    };
-    camera.target = rl.Vector3.init(0, 1, 0);
-    // view = camera.getMatrix();
-    const camera_pos = rl.Vector3.init(2, 0.5, 0);
-    camera.position = camera_pos;
-
-    var fmt_memory: [1024]u8 = undefined;
-    const fmt_buf = fmt_memory[0..];
-    const fname_fmt = "fs/render_viwe_{d}.png";
-    {
-        on_medium.begin();
-        defer on_medium.end();
-
-        // # region update
-        rl.updateCamera(&camera, rl.CameraMode.camera_custom);
-        // # region render
-        rl.beginMode3D(camera);
-        defer rl.endMode3D();
-
-        rl.clearBackground(rl.Color.white);
-
-        rl.drawModel(model, center, 1, rl.Color.gray);
-
-        var img = rl.loadImageFromTexture(on_medium.target.texture);
-        defer img.unload();
-        img.flipVertical();
-
-        const i = 0;
-        const fname = try std.fmt.bufPrintZ(fmt_buf, fname_fmt, .{i});
-        _ = img.exportToFile(fname);
-    }
-}
-
-fn runSimInMemory(mem: *const AppMemory) !void {
-    const screenWidth = 1600;
-    const screenHeight = 900;
-    var window = RLWindow{
-        .corner = vf2{ screenWidth, 0 },
-        .size = vf2{ screenWidth, screenWidth },
-    };
-
-    const title: [:0]const u8 = "+++ Runing simulation in a window +++";
-    rl.initWindow(screenWidth, screenHeight, title.ptr);
-    defer rl.closeWindow();
-    try _simulation(mem, &window);
-}
-
-fn _simulation(aloc: *const AppMemory, win: *RLWindow) !void {
-    const arena = aloc.arena;
-    _ = arena;
-    // const text_alloc = aloc.gpa;
+pub fn particles(aloc: *const AppMemory, win: *RLWindow) !void {
+    _ = aloc;
     var on_medium: RenderMedium = RenderMedium{ .window = win };
-
-    try render_model();
 
     var tmln = try Timeline.basic();
     var life_time_ms: f64 = 0;
