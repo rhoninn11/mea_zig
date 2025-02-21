@@ -90,24 +90,65 @@ fn promptFromJson() !void {
     // try ser.openPrompt(alloc, prompt_file)
 }
 
-fn envRefererence(alloc: std.mem.Allocator) !void {
-    // const name = "TRIDE";
+pub fn fs_explorer() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var arean = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer _ = gpa.deinit();
+    defer _ = arean.deinit();
+
+    const name: []const u8 = "TRIDE";
+    try envRefererence(arean.allocator(), name);
+}
+
+fn envRefererence(alloc: std.mem.Allocator, env_name: []const u8) !void {
+    var fmt_memory: [1024:0]u8 = undefined;
+    var found = false;
+    var result_buf: []u8 = fmt_memory[0..];
 
     var env = try std.process.getEnvMap(alloc);
     defer env.deinit();
 
-    var iter = env.iterator();
-    std.debug.print("+++ active env vars:\n", .{});
-    while (iter.next()) |entry| {
-        std.debug.print("{s: <30}: {s}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
+    // const elo = "dupka";
+    var vars = env.iterator();
+    while (vars.next()) |entry| {
+        switch (std.mem.count(u8, entry.key_ptr.*, env_name)) {
+            else => continue,
+            1 => {
+                const os_dir = entry.value_ptr.*;
+                const dst_name = result_buf[0..os_dir.len];
+                @memcpy(dst_name, entry.value_ptr.*);
+                result_buf = dst_name;
+                found = true;
+                break;
+            },
+        }
     }
-}
+    std.debug.assert(found);
+    const ops_path = result_buf;
+    std.debug.print("path with models: {s}\n", .{ops_path});
 
-pub fn fs_explorer() !void {
-    // try jsonCreateAndSave();
-    // try promptFromJson();
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    var dir = try std.fs.openDirAbsolute(ops_path, .{ .iterate = true });
+    defer dir.close();
 
-    try envRefererence(gpa.allocator());
+    var dir_entries = dir.iterate();
+    var glb_num: u32 = 0;
+    var glb_size: u32 = 0;
+    while (try dir_entries.next()) |entry| {
+        const name = entry.name;
+        const is_file = entry.kind == .file;
+        const is_glb = std.mem.endsWith(u8, name, ".glb");
+        if (is_glb and is_file) {
+            glb_num += 1;
+            glb_size = @as(u32, @intCast(name.len));
+        }
+    }
+
+    const FileList = std.ArrayList([]u8);
+    var glb_files = try FileList.initCapacity(alloc, glb_num);
+    defer glb_files.deinit();
+
+    dir_entries = dir.iterate();
+    // while
+
+    std.debug.print("glb num: {d} every {d}\n", .{ glb_size, glb_num });
 }
