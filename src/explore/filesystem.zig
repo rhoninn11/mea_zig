@@ -100,33 +100,42 @@ pub fn fs_explorer() !void {
     try envRefererence(arean.allocator(), name);
 }
 
+const Entry = std.fs.Dir.Entry;
+fn isGlbFile(entry: *const Entry) bool {
+    const name = entry.name;
+    const is_file = entry.kind == .file;
+    const is_glb = std.mem.endsWith(u8, name, ".glb");
+    return is_glb and is_file;
+}
+
 fn envRefererence(alloc: std.mem.Allocator, env_name: []const u8) !void {
-    var fmt_memory: [1024:0]u8 = undefined;
     var found = false;
+    var fmt_memory: [1024:0]u8 = undefined;
     var result_buf: []u8 = fmt_memory[0..];
-
-    var env = try std.process.getEnvMap(alloc);
-    defer env.deinit();
-
-    // const elo = "dupka";
-    var vars = env.iterator();
-    while (vars.next()) |entry| {
-        switch (std.mem.count(u8, entry.key_ptr.*, env_name)) {
-            else => continue,
-            1 => {
-                const os_dir = entry.value_ptr.*;
-                const dst_name = result_buf[0..os_dir.len];
-                @memcpy(dst_name, entry.value_ptr.*);
-                result_buf = dst_name;
-                found = true;
-                break;
-            },
+    {
+        var env = try std.process.getEnvMap(alloc);
+        defer env.deinit();
+        var vars = env.iterator();
+        while (vars.next()) |entry| {
+            if (std.mem.eql(u8, entry.key_ptr.*, env_name)) {
+                std.debug.print("+++ bingo\n", .{});
+            }
+            switch (std.mem.count(u8, entry.key_ptr.*, env_name)) {
+                else => continue,
+                1 => {
+                    const os_dir = entry.value_ptr.*;
+                    const dst_name = result_buf[0..os_dir.len];
+                    @memcpy(dst_name, entry.value_ptr.*);
+                    result_buf = dst_name;
+                    found = true;
+                    break;
+                },
+            }
         }
     }
     std.debug.assert(found);
-    const ops_path = result_buf;
-    std.debug.print("path with models: {s}\n", .{ops_path});
 
+    const ops_path = result_buf;
     var dir = try std.fs.openDirAbsolute(ops_path, .{ .iterate = true });
     defer dir.close();
 
@@ -134,12 +143,9 @@ fn envRefererence(alloc: std.mem.Allocator, env_name: []const u8) !void {
     var glb_num: u32 = 0;
     var glb_size: u32 = 0;
     while (try dir_entries.next()) |entry| {
-        const name = entry.name;
-        const is_file = entry.kind == .file;
-        const is_glb = std.mem.endsWith(u8, name, ".glb");
-        if (is_glb and is_file) {
+        if (isGlbFile(&entry)) {
+            glb_size = @as(u32, @intCast(entry.name.len));
             glb_num += 1;
-            glb_size = @as(u32, @intCast(name.len));
         }
     }
 
@@ -148,7 +154,12 @@ fn envRefererence(alloc: std.mem.Allocator, env_name: []const u8) !void {
     defer glb_files.deinit();
 
     dir_entries = dir.iterate();
-    // while
 
-    std.debug.print("glb num: {d} every {d}\n", .{ glb_size, glb_num });
+    const file_path: []u8 = try alloc.alloc(u8, glb_size);
+    defer alloc.free(file_path);
+    while (try dir_entries.next()) |entry| {
+        @memcpy(file_path, entry.name);
+        const abs_path = try std.mem.join(alloc, "/", &[_][]u8{ ops_path, file_path });
+        std.debug.print("glb num: {s} \n", .{abs_path});
+    }
 }

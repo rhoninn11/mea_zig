@@ -11,7 +11,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_unified;
+    const selector: examples = .using_fs;
     const AppCore = @import("mess/core.zig");
     switch (selector) {
         .rl_inertia => {
