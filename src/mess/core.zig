@@ -1,5 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
+const math = @import("../mods/core/math.zig");
 const Allocator = std.mem.Allocator;
 
 pub const AppMemory = struct {
@@ -28,7 +29,11 @@ pub fn DeployInMemory(program: InternalMain) void {
 }
 
 const fv2 = @import("../mods/core/math.zig").fv2;
-pub const RLWindow = @import("../Navig.zig").RLWindow;
+pub const RLWindow = struct {
+    corner: math.fv2,
+    size: math.fv2,
+};
+
 pub const RenderMedium = union(enum) {
     window: *RLWindow,
     target: rl.RenderTexture,
@@ -63,10 +68,32 @@ pub fn windowed_program(mem: *const AppMemory) void {
         std.debug.print("error cleaning\n", .{});
     };
 }
-fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
-    try not_defined(aloc, win);
-    try particles(aloc, win);
-}
 
-const not_defined = @import("simpleGeoRender.zig").particles;
-const particles = @import("../Navig.zig").particles;
+const Apps = enum {
+    GeoRender,
+    SimpleRuntime,
+};
+
+const AppModules = union(Apps) {
+    const Self = @This();
+
+    geo: @import("simpleGeoRender.zig"),
+    scene: @import("simpleScene2D.zig"),
+
+    fn launch() void {}
+};
+
+const fs = @import("../explore/filesystem.zig");
+const geo = @import("simpleGeoRender.zig");
+const scene = @import("simpleScene2D.zig");
+
+fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
+    // const filenames = try fs.getAllGlbs(aloc.gpa);
+    // geo.external_glbs = filenames;
+    // defer {
+    //     for (filenames) |file| aloc.gpa.free(file);
+    //     aloc.gpa.free(filenames);
+    // }
+    // try geo.launchAppWindow(aloc, win);
+    try scene.launchAppWindow(aloc, win);
+}

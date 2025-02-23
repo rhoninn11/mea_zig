@@ -1,16 +1,16 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-const repr = @import("mods/core/repr.zig");
+const repr = @import("../mods/core/repr.zig");
 const THEME = repr.Theme;
 
-const elems = @import("mods/elements.zig");
-const input = @import("mods/input.zig");
+const elems = @import("../mods/elements.zig");
+const input = @import("../mods/input.zig");
 
-const Timeline = @import("mods/time.zig").Timeline;
-const ImageBox = @import("ImageBox.zig");
+const Timeline = @import("../mods/time.zig").Timeline;
+const ImageBox = @import("../ImageBox.zig");
 
-const core = @import("mess/core.zig");
+const core = @import("core.zig");
 const AppMemory = core.AppMemory;
 const RLWindow = core.RLWindow;
 const RenderMedium = core.RenderMedium;

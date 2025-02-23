@@ -1,31 +1,23 @@
 const std = @import("std");
 const Inst = std.time.Instant;
+const Timer = std.time.Timer;
 
 pub const Timeline = struct {
     then: Inst,
+    tmr: Timer,
+    last_lap: f32 = 0,
 
-    pub fn basic() !Timeline {
-        const timespace = try Inst.now();
+    pub fn init() !Timeline {
         return Timeline{
-            .then = timespace,
+            .then = try Inst.now(),
+            .tmr = try Timer.start(),
         };
     }
 
-    pub fn messureFrom(self: *Timeline) !void {
-        self.then = try Inst.now();
-    }
-
-    pub fn elapsedInfo(self: Timeline) !f64 {
-        const now = try Inst.now();
-        const elapsed_ns: f64 = @floatFromInt(now.since(self.then));
-        const elapsed_ms = elapsed_ns / std.time.ns_per_ms;
-        return elapsed_ms;
-    }
-
-    pub fn tickMs(self: *Timeline) !f32 {
-        const time_delta_us = try self.elapsedInfo();
-        try self.messureFrom();
-        return @floatCast(time_delta_us);
+    pub fn tickMs(self: *Timeline) f32 {
+        self.last_lap = @floatFromInt(self.tmr.lap());
+        self.last_lap /= std.time.ns_per_ms;
+        return self.last_lap;
     }
 };
 

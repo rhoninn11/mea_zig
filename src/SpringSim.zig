@@ -87,6 +87,7 @@ const PhysInprint = phys.PhysInprint;
 const Exiter = @import("mods/elements.zig").Exiter;
 
 const AppMemory = @import("mess/core.zig").AppMemory;
+
 pub fn program(aloc: *const AppMemory) void {
     _ = _simulation(aloc) catch {
         std.debug.print("error cleaning\n", .{});
@@ -108,7 +109,7 @@ fn _simulation(aloc: *const AppMemory) !void {
     var exit = Exiter.spawn(corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
-    var tmln = try Timeline.basic();
+    var tmln = try Timeline.init();
     // rl.setTargetFPS(59);
 
     const letters = "qwertyuiopasdfghjklzxcvbnm";
