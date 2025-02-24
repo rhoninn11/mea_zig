@@ -53,10 +53,8 @@ pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
         const mouse_pose = input.sample_mouse();
 
         for (&skill_keys) |*skill_key| skill_key.collectiInput();
-        exit.collectInput();
         const pointer_pos = rl.Vector3.init(mouse_pose[0], mouse_pose[1], 0);
 
-        // for(& skill_keys) | *|
         exit.update(delta_ms);
 
         const info_tmpl: []const u8 = "Congrats! You created your first window!\n Frame time {d:.3}ms\n fps {d}\n";
