@@ -5,12 +5,29 @@ const core = @import("core.zig");
 const AppMemory = core.AppMemory;
 const RLWindow = core.RLWindow;
 const RenderMedium = core.RenderMedium;
+const Axis = core.Axis;
 
 const Timeline = @import("../mods/time.zig").Timeline;
 const elems = @import("../mods/elements.zig");
 const THEME = @import("../mods/core/repr.zig").Theme;
 
 pub var external_glbs: ?[][:0]const u8 = null;
+
+fn logVec3(info: []const u8, v3: rl.Vector3) void {
+    std.debug.print("+++ {s} Vec({d:.2}, {d:.2}, {d:.2})\n", .{ info, v3.x, v3.y, v3.z });
+}
+
+fn maxAxis(v3: rl.Vector3) f32 {
+    var max: f32 = 0;
+    const axis = [_]f32{ v3.x, v3.y, v3.z };
+    for (axis) |val| max = if (max > val) max else val;
+    return max;
+}
+
+test "max axis" {
+    const sample = rl.Vector3.init(1.2, 3.1, 2.1);
+    try std.testing.expectEqual(maxAxis(sample), 3.1);
+}
 
 fn render_model() !void {
     const img_size = 1344;
@@ -38,14 +55,30 @@ fn render_model() !void {
     const fmt_buf = fmt_memory[0..];
     const fname_fmt = "fs/render_viwe_{d}.png";
 
-    // From whatever reaseon that model cause error, on raylib side, what version of RL do you have?
-    // const default_models = [_][:0]const u8{"/home/leszek/dev/mea_comfy/fs/tride/models/model_001.glb"};
-    const default_models = [_][:0]const u8{"assets/hand.glb"};
+    // there is critical to control that model dont use fancy compression extensions (like draco)
+    // otherwise it cause segmenetaion fault
+    const default_models = [_][:0]const u8{
+        "assets/hand.glb",
+        // "/home/leszek/dev/mea_zig/fs/malpa.glb",
+        // "/home/leszek/dev/mea_zig/fs/malpa_off.glb",
+    };
 
     const glbs_to_render = external_glbs orelse default_models[0..];
     for (glbs_to_render, 0..) |glb_file, i| {
         var model = rl.loadModel(glb_file);
         defer model.unload();
+
+        // const a = model.transform;
+
+        const bb = rl.getModelBoundingBox(model);
+        const pos = bb.min.negate();
+        const model_size = bb.max.subtract(bb.min);
+        // const b = model_size.scale(0.5);
+
+        // bbmodel_size.scale(0.5);
+        logVec3("model size:", model_size);
+        logVec3("bb min:", bb.min);
+        logVec3("bb max:", bb.max);
 
         on_medium.begin();
         defer on_medium.end();
@@ -56,9 +89,9 @@ fn render_model() !void {
         rl.beginMode3D(camera);
         defer rl.endMode3D();
 
-        rl.clearBackground(rl.Color.white);
+        rl.clearBackground(rl.Color.beige);
 
-        rl.drawModel(model, center, 1, rl.Color.gray);
+        rl.drawModel(model, pos, 1, rl.Color.gray);
 
         var img = rl.loadImageFromTexture(on_medium.target.texture);
         defer img.unload();
@@ -71,24 +104,25 @@ fn render_model() !void {
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     _ = arena;
+    _ = win;
     // const text_alloc = aloc.gpa;
-    var on_medium: RenderMedium = RenderMedium{ .window = win };
+    // var on_medium: RenderMedium = RenderMedium{ .window = win };
 
-    var tmln = try Timeline.init();
+    // var tmln = try Timeline.init();
 
     try render_model();
 
-    var exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
-    exit.selfReference();
+    // var exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
+    // exit.selfReference();
 
-    while (exit.toContinue()) {
-        const delta_ms = try tmln.tickMs();
-        exit.collectInput();
-        exit.update(delta_ms);
+    // while (exit.toContinue()) {
+    //     const delta_ms = tmln.tickMs();
+    //     exit.collectInput();
+    //     exit.update(delta_ms);
 
-        on_medium.begin();
-        defer on_medium.end();
-        rl.clearBackground(THEME[0]);
-        exit.draw();
-    }
+    //     on_medium.begin();
+    //     defer on_medium.end();
+    //     rl.clearBackground(THEME[0]);
+    //     exit.draw();
+    // }
 }

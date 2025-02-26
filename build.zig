@@ -3,22 +3,40 @@ const protobuf = @import("protobuf");
 
 const Compile = std.Build.Step.Compile;
 const Dependency = std.Build.Dependency;
-const std_target = std.Build.ResolvedTarget;
-const std_opims = std.builtin.OptimizeMode;
 
-const buildOptions = struct {
-    target: std_target,
-    optimod: std_opims,
+const BuildOptions = struct {
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+
+    pub fn init(b: *std.Build) BuildOptions {
+        return BuildOptions{
+            .target = b.standardTargetOptions(.{}),
+            .optimize = b.standardOptimizeOption(.{}),
+        };
+    }
 };
 
 const BuildUnit = struct {
     bld: *std.Build,
-    bldOpt: buildOptions,
+    bldOpt: BuildOptions,
+
+    pub fn init(b: *std.Build) BuildUnit {
+        return BuildUnit{
+            .bld = b,
+            .bldOpt = BuildOptions.init(b),
+        };
+    }
+
+    pub fn addGltfModule(self: BuildUnit, compileUnit: *Compile) void {
+        const zgltf_path = "tmp/zgltf/src/main.zig";
+        const zgltf_mod = self.bld.addModule("zgltf", .{ .root_source_file = self.bld.path(zgltf_path) });
+        compileUnit.root_module.addImport("zgltf", zgltf_mod);
+    }
 
     pub fn addLib(self: BuildUnit, compileUnit: *Compile, name: []const u8) *Dependency {
         const dep = self.bld.dependency(name, .{
             .target = self.bldOpt.target,
-            .optimize = self.bldOpt.optimod,
+            .optimize = self.bldOpt.optimize,
         });
 
         compileUnit.root_module.addImport(name, dep.module(name));
@@ -26,11 +44,8 @@ const BuildUnit = struct {
     }
 };
 
-fn build_options(bld: *std.Build) buildOptions {
-    return buildOptions{
-        .target = bld.standardTargetOptions(.{}),
-        .optimod = bld.standardOptimizeOption(.{}),
-    };
+fn build_options(bld: *std.Build) BuildOptions {
+    return BuildOptions.init(bld);
 }
 
 pub fn add_raylib(blu: BuildUnit, exe: *Compile) void {
@@ -39,7 +54,7 @@ pub fn add_raylib(blu: BuildUnit, exe: *Compile) void {
 
     const raylib_dep = bld.dependency("raylib-zig", .{
         .target = bld_opts.target,
-        .optimize = bld_opts.optimod,
+        .optimize = bld_opts.optimize,
     });
 
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
@@ -66,7 +81,7 @@ pub fn generateProto(blu: BuildUnit, dep: *Dependency) void {
     bld_flag.dependOn(&gen_step.step);
 }
 
-pub fn compile_tupla(bUnit: BuildUnit, for_file: []const u8) [2]*Compile {
+pub fn exeTestTupla(bUnit: BuildUnit, for_file: []const u8) [2]*Compile {
     const b = bUnit.bld;
     const bOps = bUnit.bldOpt;
 
@@ -75,36 +90,34 @@ pub fn compile_tupla(bUnit: BuildUnit, for_file: []const u8) [2]*Compile {
         .name = "app",
         .root_source_file = b.path(for_file),
         .target = bOps.target,
-        .optimize = bOps.optimod,
+        .optimize = bOps.optimize,
     });
 
     tupla[1] = b.addTest(.{
         .root_source_file = b.path(for_file),
         .target = bOps.target,
-        .optimize = bOps.optimod,
+        .optimize = bOps.optimize,
     });
     return tupla;
 }
 
-pub fn native_app(b: *std.Build, main_file: []const u8) !void {
-    const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
-    defer b.allocator.free(src_file_path);
+pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
+    const main_src = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
+    defer b.allocator.free(main_src);
 
-    const bld_opts = build_options(b);
-    const blu = BuildUnit{ .bld = b, .bldOpt = bld_opts };
-
-    const compile_paths = compile_tupla(blu, src_file_path);
+    const blu = BuildUnit.init(b);
+    const compile_paths = exeTestTupla(blu, main_src);
     for (compile_paths) |compile| {
         compile.addIncludePath(b.path("src/explore/precompile/include/"));
         add_raylib(blu, compile);
     }
-    const exe = compile_paths[0];
 
+    const exe = compile_paths[0];
+    blu.addGltfModule(exe);
     _ = blu.addLib(exe, "zigimg");
     const pb = blu.addLib(exe, "protobuf");
     generateProto(blu, pb);
     b.installArtifact(exe);
-
     const run_exe = b.addRunArtifact(exe);
     const run_step = b.step("run", "+++ run cli app after build");
     run_step.dependOn(&run_exe.step);
@@ -115,7 +128,7 @@ pub fn native_app(b: *std.Build, main_file: []const u8) !void {
     test_step.dependOn(&test_exe.step);
 }
 
-fn wasm_app(b: *std.Build, main_file: []const u8) !void {
+fn wasmApp(b: *std.Build, main_file: []const u8) !void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,
@@ -142,18 +155,18 @@ fn wasm_app(b: *std.Build, main_file: []const u8) !void {
     b.installArtifact(exe);
 }
 
-pub fn app_build(b: *std.Build) !void {
+pub fn appBuildSwitch(b: *std.Build) !void {
     // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
     // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
     const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (vanila_wasm) {
-        try wasm_app(b, "wasmfns.zig");
+        try wasmApp(b, "wasmfns.zig");
     } else {
-        try native_app(b, "main.zig");
+        try nativeApp(b, "main.zig");
     }
 }
 
 pub fn build(b: *std.Build) void {
-    app_build(b) catch std.debug.print("!!! build failed", .{});
+    appBuildSwitch(b) catch std.debug.print("!!! build failed", .{});
 }

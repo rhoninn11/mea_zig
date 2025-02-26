@@ -177,6 +177,7 @@ fn allFileFrom(alloc: Allocator, path: []const u8, file_ext: []const u8) ![][:0]
 }
 
 fn filesInfo(alloc: Allocator, paths: [][:0]u8) !void {
+    _ = alloc;
     const all_files = paths;
     var total_size: u64 = 0;
     for (all_files) |file| {
@@ -186,21 +187,34 @@ fn filesInfo(alloc: Allocator, paths: [][:0]u8) !void {
         model_data_fs.close();
     }
 
-    const data_blob = try alloc.alloc(u8, total_size);
-    defer alloc.free(data_blob);
-    var beg: u64 = 0;
-    var end: u64 = 0;
-    for (all_files) |flie| {
-        const fd = try std.fs.openFileAbsolute(flie, .{});
-        end = beg + try fd.getEndPos();
-        const dest = data_blob[beg..end];
-        beg = end;
+    // const data_blob = try alloc.alloc(u8, total_size);
+    // defer alloc.free(data_blob);
+    // var beg: u64 = 0;
+    // var end: u64 = 0;
+    // for (all_files) |flie| {
+    //     const fd = try std.fs.openFileAbsolute(flie, .{});
+    //     defer fd.close();
+    //     end = beg + try fd.getEndPos();
+    //     const dest = data_blob[beg..end];
+    //     beg = end;
 
-        _ = try fd.reader().readAll(dest);
+    //     _ = try fd.reader().readAll(dest);
+    // }
+
+    const K = 1024;
+    const sizes = [_]u32{ K, K * K, K * K * K };
+    const units = [_][]const u8{ "KB", "MB", "GB" };
+    var total_size_f: f32 = 0;
+    var unit: []const u8 = undefined;
+    for (units, sizes) |_unit, _size| {
+        total_size_f = @as(f32, @floatFromInt(total_size)) / @as(f32, @floatFromInt(_size));
+        unit = _unit;
+        if (total_size_f < @as(f32, @floatFromInt(K))) break;
     }
-
-    std.debug.print(" files weight: {d} B, files contribuded: {d}, reps size {d}\n", .{ total_size / 1024, all_files.len, all_files.len * all_files[0].len });
+    std.debug.print("+++ file count: {d}\n+++ total size {d:.3} {s}\n", .{ all_files.len, total_size_f, unit });
 }
+
+const Gltf = @import("zgltf");
 
 fn envRefererence(alloc: std.mem.Allocator) !void {
     const all_files = try getAllGlbs(alloc);
@@ -208,6 +222,7 @@ fn envRefererence(alloc: std.mem.Allocator) !void {
         for (all_files) |file| alloc.free(file);
         alloc.free(all_files);
     }
+    try filesInfo(alloc, all_files);
 }
 
 pub fn getAllGlbs(alloc: Allocator) ![][:0]u8 {

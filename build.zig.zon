@@ -28,8 +28,8 @@
             .hash = "122040d9cc905342547e1e9da227a7f16fae5e7ae23134cb62aaef64c5b2c4f58828",
         },
         .@"raylib-zig" = .{
-            .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
-            .hash = "12202f8c415153088be8df39a51e0a4c9d402afd403422a0dcc9afdd417e437a6fdb",
+            .url = "https://github.com/Not-Nik/raylib-zig/archive/refs/tags/v5.5-dev.tar.gz",
+            .hash = "122062d2421175ba6bf89382c86621270e4883f1074ee4cc09da282e231bdef57328",
         },
         .protobuf = .{
             .url = "https://github.com/Arwalk/zig-protobuf/archive/refs/tags/v2.0.0.tar.gz",
