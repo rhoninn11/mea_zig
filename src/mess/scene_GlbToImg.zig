@@ -1,6 +1,8 @@
 const std = @import("std");
 const rl = @import("raylib");
 const core = @import("core.zig");
+const log = @import("log.zig");
+const utils = @import("utils.zig");
 
 const AppMemory = core.AppMemory;
 const RLWindow = core.RLWindow;
@@ -12,22 +14,6 @@ const elems = @import("../mods/elements.zig");
 const THEME = @import("../mods/core/repr.zig").Theme;
 
 pub var external_glbs: ?[][:0]const u8 = null;
-
-fn logVec3(info: []const u8, v3: rl.Vector3) void {
-    std.debug.print("+++ {s} Vec({d:.2}, {d:.2}, {d:.2})\n", .{ info, v3.x, v3.y, v3.z });
-}
-
-fn maxAxis(v3: rl.Vector3) f32 {
-    var max: f32 = 0;
-    const axis = [_]f32{ v3.x, v3.y, v3.z };
-    for (axis) |val| max = if (max > val) max else val;
-    return max;
-}
-
-test "max axis" {
-    const sample = rl.Vector3.init(1.2, 3.1, 2.1);
-    try std.testing.expectEqual(maxAxis(sample), 3.1);
-}
 
 fn render_model() !void {
     const img_size = 1344;
@@ -76,9 +62,9 @@ fn render_model() !void {
         // const b = model_size.scale(0.5);
 
         // bbmodel_size.scale(0.5);
-        logVec3("model size:", model_size);
-        logVec3("bb min:", bb.min);
-        logVec3("bb max:", bb.max);
+        log.logVec3("model size:", model_size);
+        log.logVec3("bb min:", bb.min);
+        log.logVec3("bb max:", bb.max);
 
         on_medium.begin();
         defer on_medium.end();

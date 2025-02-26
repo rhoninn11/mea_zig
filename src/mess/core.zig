@@ -75,12 +75,20 @@ const Scenes = enum {
     SimpleRuntime,
 };
 
+const fs = @import("../explore/filesystem.zig");
+
+const geo = @import("scene_GlbToImg.zig");
+const scene = @import("simpleScene2D.zig");
+const ChessBoard = @import("scene_ChessBoardRender.zig");
+const GlbPreview = @import("scene_GlbPreview.zig");
+
+// Would be nice if possible of course to call each scene fn with switch
 const AppModules = union(Scenes) {
     const Self = @This();
 
-    const geoType = @import("simpleGeoRender.zig");
-    const sceneType = @import("simpleScene2D.zig");
-    const chessType = @import("scene_ChessBoardRender.zig");
+    const geoType = geo;
+    const sceneType = scene;
+    const chessType = ChessBoard;
 
     geo: geoType,
     scene: sceneType,
@@ -89,15 +97,7 @@ const AppModules = union(Scenes) {
     fn init() AppModules {
         return Self{ .geo = {} };
     }
-
-    // fn launch(self: *Self, alloc: *AppMemory, win: *RLWindow, rm: RenderMedium) void {
-    // }
 };
-
-const fs = @import("../explore/filesystem.zig");
-const geo = @import("simpleGeoRender.zig");
-const scene = @import("simpleScene2D.zig");
-const ChessBoard = @import("scene_ChessBoardRender.zig");
 
 fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
     // const filenames = try fs.getAllGlbs(aloc.gpa);
@@ -108,5 +108,6 @@ fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
     // }
     // try geo.launchAppWindow(aloc, win);
     // try scene.launchAppWindow(aloc, win);
-    try ChessBoard.launchAppWindow(aloc, win);
+    // try ChessBoard.launchAppWindow(aloc, win);
+    try GlbPreview.launchAppWindow(aloc, win);
 }
