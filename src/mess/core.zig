@@ -39,6 +39,7 @@ pub const RenderMedium = union(enum) {
     target: rl.RenderTexture,
 
     pub fn begin(self: RenderMedium) void {
+        // std.debug.print("elo\n", .{});
         switch (self) {
             RenderMedium.window => rl.beginDrawing(),
             RenderMedium.target => |rtxt| rl.beginTextureMode(rtxt),
@@ -69,23 +70,34 @@ pub fn windowed_program(mem: *const AppMemory) void {
     };
 }
 
-const Apps = enum {
+const Scenes = enum {
     GeoRender,
     SimpleRuntime,
 };
 
-const AppModules = union(Apps) {
+const AppModules = union(Scenes) {
     const Self = @This();
 
-    geo: @import("simpleGeoRender.zig"),
-    scene: @import("simpleScene2D.zig"),
+    const geoType = @import("simpleGeoRender.zig");
+    const sceneType = @import("simpleScene2D.zig");
+    const chessType = @import("scene_ChessBoardRender.zig");
 
-    fn launch() void {}
+    geo: geoType,
+    scene: sceneType,
+    chess: chessType,
+
+    fn init() AppModules {
+        return Self{ .geo = {} };
+    }
+
+    // fn launch(self: *Self, alloc: *AppMemory, win: *RLWindow, rm: RenderMedium) void {
+    // }
 };
 
 const fs = @import("../explore/filesystem.zig");
 const geo = @import("simpleGeoRender.zig");
 const scene = @import("simpleScene2D.zig");
+const ChessBoard = @import("scene_ChessBoardRender.zig");
 
 fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
     // const filenames = try fs.getAllGlbs(aloc.gpa);
@@ -95,5 +107,6 @@ fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
     //     aloc.gpa.free(filenames);
     // }
     // try geo.launchAppWindow(aloc, win);
-    try scene.launchAppWindow(aloc, win);
+    // try scene.launchAppWindow(aloc, win);
+    try ChessBoard.launchAppWindow(aloc, win);
 }

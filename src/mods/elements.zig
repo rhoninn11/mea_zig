@@ -46,6 +46,7 @@ pub const Exiter = struct {
     }
 
     pub fn update(self: *Self, delta_ms: f32) void {
+        self.collectInput();
         self.key.update(delta_ms);
         self.trig_delay.update(delta_ms);
         self.exit_delay.update(delta_ms);
