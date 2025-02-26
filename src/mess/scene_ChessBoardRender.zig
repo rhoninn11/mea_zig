@@ -11,7 +11,84 @@ const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
 const THEME = @import("../mods/core/repr.zig").Theme;
 
-fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
+const Allocator = std.mem.Allocator;
+
+const ChessRenderState = struct {
+    const Self = @This();
+    alloc: *Allocator,
+    x_pos: []f32,
+    y_pos: []f32,
+    z_pos: []f32,
+    col: []rl.Color,
+
+    pub fn deinit(self: Self) void {
+        self.alloc.free(self.x_pos);
+        self.alloc.free(self.y_pos);
+        self.alloc.free(self.z_pos);
+        self.alloc.free(self.col);
+    }
+
+    pub fn init(alloc: *Allocator) !Self {
+        const xn = 8;
+        const yn = xn;
+        const fields = 64;
+        std.debug.print("+++ how out of memory? {d}\n", .{fields});
+        const for_real = try alloc.alloc(f32, 12);
+        _ = for_real;
+
+        // std.ArrayListAligned(f32, 4).init(alloc);
+
+        const state = Self{
+            .alloc = alloc,
+            .x_pos = try alloc.alloc(f32, fields),
+            .y_pos = try alloc.alloc(f32, fields),
+            .z_pos = try alloc.alloc(f32, fields),
+            .col = try alloc.alloc(rl.Color, fields),
+        };
+        // populate x data
+        const x_pos = state.x_pos;
+        @memset(x_pos, 3);
+        for (0..fields) |x| x_pos[x] = @floatFromInt(x);
+        // for (0..xn) |x| x_pos[x] = @floatFromInt(x);
+        // const stencil: []f32 = x_pos[0..xn];
+        // for (1..yn) |y| {
+        //     const x_spot = x_pos[y * xn .. (y + 1) * xn];
+        //     @memcpy(stencil, x_spot);
+        // }
+        // populate y data
+        const y_pos = state.y_pos;
+        for (0..yn) |y| {
+            const y_spot = y_pos[y * yn .. (y + 1) * yn];
+            const y_val: f32 = @floatFromInt(y);
+            std.debug.print("+++ y val is {d}", .{y_val});
+            @memset(y_spot, y_val);
+        }
+        // populate z data
+        @memset(state.z_pos, 0);
+        // populate color data
+        for (0..fields) |i| {
+            state.col[i] = switch (@mod(i, 5)) {
+                0 => rl.Color.white,
+                1 => rl.Color.black,
+                2 => rl.Color.magenta,
+                3 => rl.Color.maroon,
+                4 => rl.Color.lime,
+                else => unreachable,
+            };
+        }
+        return state;
+    }
+
+    pub fn repr(self: Self) void {
+        for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, z, y, c| {
+            const pos = rl.Vector3.init(x, y, z);
+            const size = rl.Vector3.init(1, 0.33, 1);
+            rl.drawCubeWiresV(pos, size, c);
+        }
+    }
+};
+
+fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
     const center = rl.Vector3.init(0, 0, 0);
     var camera = rl.Camera{
         .up = rl.Vector3.init(0, 1, 0),
@@ -25,19 +102,11 @@ fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter
     const camera_pos = rl.Vector3.init(0, 1, -2);
     camera.position = camera_pos;
 
-    const xy = 8;
-    const grid_x: []f32 = try alloc.alloc(f32, xy * xy);
-    defer alloc.free(grid_x);
-    for (0..xy) |x| grid_x[x] = @floatFromInt(x);
-    for (1..xy) |y| @memcpy(grid_x[0..xy], grid_x[xy * y .. xy * (y + 1)]);
-
-    const grid_y: []f32 = try alloc.alloc(f32, xy * xy);
-    defer alloc.free(grid_y);
-    for (0..xy) |y| @memset(grid_y[y * xy .. (y + 1) * xy], @floatFromInt(y));
-
-    // color also should be precalculated
-    const grid_color: []bool = try alloc.alloc(bool, xy * xy);
-    defer alloc.free(grid_color);
+    var varAlloc = alloc;
+    const for_real = try varAlloc.alloc(f32, 88);
+    _ = for_real;
+    const chess_state = try ChessRenderState.init(&varAlloc);
+    defer chess_state.deinit();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
@@ -48,7 +117,7 @@ fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter
         exiter.update(delta_ms);
         total_s += delta_ms / 1000;
 
-        rl.updateCamera(&camera, rl.CameraMode.camera_custom);
+        rl.updateCamera(&camera, rl.CameraMode.camera_free);
 
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
@@ -66,10 +135,7 @@ fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter
             const pos_2 = pos.add(rl.Vector3.init(1, 0, 0));
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.black);
 
-            for (grid_x, grid_y) |x, y| {
-                const grid_pos = rl.Vector3.init(x, 0, y);
-                _ = grid_pos;
-            }
+            chess_state.repr();
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
@@ -86,5 +152,5 @@ pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     var _exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     _exit.selfReference();
 
-    try render_model(&arena, on_medium, &_exit, &tmln);
+    try render_model(arena, on_medium, &_exit, &tmln);
 }
