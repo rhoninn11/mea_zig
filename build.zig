@@ -27,11 +27,12 @@ const BuildUnit = struct {
         };
     }
 
-    pub fn addGltfModule(self: BuildUnit, compileUnit: *Compile) void {
-        const zgltf_path = "tmp/zgltf/src/main.zig";
-        const zgltf_mod = self.bld.addModule("zgltf", .{ .root_source_file = self.bld.path(zgltf_path) });
-        compileUnit.root_module.addImport("zgltf", zgltf_mod);
-    }
+    // there is no need for zgltf now
+    // pub fn addGltfModule(self: BuildUnit, compileUnit: *Compile) void {
+    //     const zgltf_path = "tmp/zgltf/src/main.zig";
+    //     const zgltf_mod = self.bld.addModule("zgltf", .{ .root_source_file = self.bld.path(zgltf_path) });
+    //     compileUnit.root_module.addImport("zgltf", zgltf_mod);
+    // }
 
     pub fn addLib(self: BuildUnit, compileUnit: *Compile, name: []const u8) *Dependency {
         const dep = self.bld.dependency(name, .{
@@ -113,7 +114,7 @@ pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
     }
 
     const exe = compile_paths[0];
-    blu.addGltfModule(exe);
+    // blu.addGltfModule(exe);
     _ = blu.addLib(exe, "zigimg");
     const pb = blu.addLib(exe, "protobuf");
     generateProto(blu, pb);
