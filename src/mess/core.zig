@@ -35,21 +35,21 @@ pub const RLWindow = struct {
 };
 
 pub const RenderMedium = union(enum) {
-    window: *RLWindow,
-    target: rl.RenderTexture,
+    rlwin: *RLWindow,
+    rltex: rl.RenderTexture,
 
     pub fn begin(self: RenderMedium) void {
         // std.debug.print("elo\n", .{});
         switch (self) {
-            RenderMedium.window => rl.beginDrawing(),
-            RenderMedium.target => |rtxt| rl.beginTextureMode(rtxt),
+            RenderMedium.rlwin => rl.beginDrawing(),
+            RenderMedium.rltex => |rltxt| rl.beginTextureMode(rltxt),
         }
     }
 
     pub fn end(self: RenderMedium) void {
         switch (self) {
-            RenderMedium.window => rl.endDrawing(),
-            RenderMedium.target => rl.endTextureMode(),
+            RenderMedium.rlwin => rl.endDrawing(),
+            RenderMedium.rltex => rl.endTextureMode(),
         }
     }
 };

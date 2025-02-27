@@ -18,9 +18,9 @@ pub var external_glbs: ?[][:0]const u8 = null;
 fn render_model() !void {
     const img_size = 1344;
     var on_medium: RenderMedium = RenderMedium{
-        .target = rl.RenderTexture2D.init(img_size, img_size),
+        .rltex = rl.RenderTexture2D.init(img_size, img_size),
     };
-    defer on_medium.target.unload();
+    defer on_medium.rltex.unload();
     // const textTo: [1024]u8 = undefined;
     // const textTo1: []u8 = textTo[0..];
 
@@ -79,7 +79,7 @@ fn render_model() !void {
 
         rl.drawModel(model, pos, 1, rl.Color.gray);
 
-        var img = rl.loadImageFromTexture(on_medium.target.texture);
+        var img = rl.loadImageFromTexture(on_medium.rltex.texture);
         defer img.unload();
         img.flipVertical();
 

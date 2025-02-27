@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-fn maxAxis(v3: rl.Vector3) f32 {
+pub fn maxAxis(v3: rl.Vector3) f32 {
     var max: f32 = 0;
     const axis = [_]f32{ v3.x, v3.y, v3.z };
     for (axis) |val| max = if (max > val) max else val;

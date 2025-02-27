@@ -17,7 +17,7 @@ const RenderMedium = core.RenderMedium;
 
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     _ = aloc;
-    var on_medium: RenderMedium = RenderMedium{ .window = win };
+    var on_medium: RenderMedium = RenderMedium{ .rlwin = win };
 
     var tmln = try Timeline.init();
     var life_time_ms: f64 = 0;

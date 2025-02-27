@@ -71,16 +71,22 @@ pub const DynLinSpace = struct {
 pub const LinePreset = enum {
     Full,
     NoTip,
+    NoLast,
+    NoFirst,
 };
 
 pub fn LinStage(comptime len: u32, comptime kind: LinePreset) [len]f32 {
-    const no_tips = LineOpts{ .len = len, .first = false, .last = false };
     const with_tips = LineOpts{ .len = len, .first = true, .last = true };
+    const no_tips = LineOpts{ .len = len, .first = false, .last = false };
+    const no_first_tip = LineOpts{ .len = len, .first = false, .last = true };
+    const no_last_tip = LineOpts{ .len = len, .first = true, .last = false };
 
     comptime var setup: LineOpts = undefined;
     switch (kind) {
         LinePreset.Full => setup = with_tips,
         LinePreset.NoTip => setup = no_tips,
+        LinePreset.NoFirst => setup = no_first_tip,
+        LinePreset.NoLast => setup = no_last_tip,
     }
 
     return line1D(setup);

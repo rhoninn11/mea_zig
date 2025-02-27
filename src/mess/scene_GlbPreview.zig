@@ -3,6 +3,9 @@ const rl = @import("raylib");
 const core = @import("core.zig");
 const log = @import("log.zig");
 const utils = @import("utils.zig");
+const view = @import("view.zig");
+
+const Allocator = std.mem.Allocator;
 
 const AppMemory = core.AppMemory;
 const RLWindow = core.RLWindow;
@@ -13,43 +16,65 @@ const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
 const THEME = @import("../mods/core/repr.zig").Theme;
 
-fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
-    const up = rl.Vector3.init(0, 1, 0);
+fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *Timeline) !void {
     const center = rl.Vector3.init(0, 0, 0);
-    const init_pos = rl.Vector3.init(0, 1, -2);
-    var camera = rl.Camera{
-        .up = up,
-        .position = center,
-        .target = center,
-        .fovy = 60,
-        .projection = rl.CameraProjection.camera_perspective,
+    var camera = view.cameraPersp();
+    camera.target = center;
+
+    const main = RenderMedium{ .rlwin = rlwin };
+    const tex_size = 256;
+    const preview = RenderMedium{
+        .rltex = rl.loadRenderTexture(tex_size, tex_size),
     };
-    camera.target = rl.Vector3.init(0, 0, 0);
-    camera.position = init_pos;
+    const preview_points = RenderMedium{
+        .rltex = rl.loadRenderTexture(tex_size, tex_size),
+    };
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
 
-    const models = [_][:0]const u8{
+    const glbs = [_][:0]const u8{
+        "assets/hand.glb",
         // "assets/grid.glb",
-        // "assets/hand.glb",
         // "/home/leszek/dev/mea_zig/fs/malpa.glb",
         // "/home/leszek/dev/mea_zig/fs/malpa_off.glb",
-        "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_001.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_001.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_002.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_003.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_004.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_005.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_006.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_007.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_008.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_009.glb",
+        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/untitled.glb",
     };
 
     const space_reference = rl.loadModel("assets/grid.glb");
     defer space_reference.unload();
-    const model = rl.loadModel(models[0]);
-    defer model.unload();
 
-    const bb = rl.getModelBoundingBox(model);
-    log.logVec3("bb min", bb.min);
-    log.logVec3("bb max", bb.max);
-    const size = bb.max.subtract(bb.min);
-    log.logVec3("bb size", size);
-    const offset = bb.min.negate();
-    log.logVec3("offset", offset);
+    var modelsV: [glbs.len]rl.Model = undefined;
+    var scaleV: [glbs.len]f32 = undefined;
+    var cOffsetV: [glbs.len]rl.Vector3 = undefined;
+    var sizeV: [glbs.len]rl.Vector3 = undefined;
+    for (glbs, 0..) |glb_file, i| {
+        const model = rl.loadModel(glb_file);
+        const bb = rl.getModelBoundingBox(model);
+        const size = bb.max.subtract(bb.min);
+        const offset = bb.min.add(size.scale(0.5)).negate();
+        const scale = 1 / utils.maxAxis(size);
+
+        modelsV[i] = model;
+        sizeV[i] = size.scale(scale);
+        cOffsetV[i] = offset.scale(scale);
+        scaleV[i] = scale;
+    }
+    const sinLut = circleLut(glbs.len);
+
+    defer for (modelsV) |model| model.unload();
+
+    const model = rl.loadModel(glbs[0]);
+    defer model.unload();
 
     var total_s: f32 = 0;
     while (exiter.toContinue()) {
@@ -63,37 +88,80 @@ fn render_model(alloc: *const std.mem.Allocator, on_medium: RenderMedium, exiter
         // camera.position = init_pos.add(up.scale(osc));
         rl.updateCamera(&camera, rl.CameraMode.camera_free);
 
-        on_medium.begin();
-        defer on_medium.end();
+        {
+            preview.begin();
+            defer preview.end();
+            rl.beginMode3D(camera);
+            defer rl.endMode3D();
+            rl.clearBackground(rl.Color.black);
+            for (modelsV, cOffsetV, scaleV, sinLut) |m, cO, s, sl| {
+                const pos = cO.add(sl);
+                rl.drawModelWires(m, pos, s, rl.Color.red);
+            }
+        }
+        {
+            preview_points.begin();
+            defer preview_points.end();
+            rl.beginMode3D(camera);
+            defer rl.endMode3D();
+            rl.clearBackground(rl.Color.black);
+            for (modelsV, cOffsetV, scaleV, sinLut) |m, cO, s, sl| {
+                const pos = cO.add(sl);
+                rl.drawModelPoints(m, pos, s, rl.Color.lime);
+            }
+        }
+
+        main.begin();
+        defer main.end();
         rl.clearBackground(THEME[1]);
         {
             rl.beginMode3D(camera);
             defer rl.endMode3D();
-            rl.drawModel(space_reference, center, 1, rl.Color.white);
+            rl.drawModel(space_reference, center.add(rl.Vector3.init(0, -1, 0)), 1, rl.Color.white);
             // const base_size = 0.5;
+            for (modelsV, cOffsetV, scaleV, sinLut) |m, cO, s, sl| {
+                const pos = cO.add(sl);
+                rl.drawModel(m, pos, s, rl.Color.white);
+            }
 
-            const models_pos = center;
-            const scale = 0.02;
-            rl.drawModel(model, models_pos, scale, rl.Color.white);
-
-            rl.drawLine3D(rl.Vector3.zero(), bb.min.scale(scale), rl.Color.pink);
-            rl.drawLine3D(rl.Vector3.zero(), bb.max.scale(scale), rl.Color.maroon);
+            // rl.drawLine3D(rl.Vector3.zero(), cOffsetV[0], rl.Color.red);
+            // rl.drawLine3D(cOffsetV[0], cOffsetV[0].add(sizeV[0]), rl.Color.blue);
+            // rl.drawLine3D(origin, mSize.scale(scale).add(origin), rl.Color.blue);
             // rl.drawCube(pos, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.white);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
+        const x_pos = rlwin.size[0] - tex_size;
+        rl.drawTextureEx(preview.rltex.texture, rl.Vector2.init(x_pos, 0 * tex_size), 0, 1, rl.Color.white);
+        rl.drawTextureEx(preview_points.rltex.texture, rl.Vector2.init(x_pos, 1 * tex_size), 0, 1, rl.Color.white);
+
         exiter.draw();
     }
 }
+
+const spatial = @import("../spatial.zig");
+
+fn circleLut(comptime len: u32) [len]rl.Vector3 {
+    const progress = spatial.LinStage(len, .NoLast);
+    const circle_size = 5;
+    var lut: [len]rl.Vector3 = undefined;
+
+    for (progress, 0..) |val, i| {
+        const x = std.math.cos(val * std.math.pi * 2) * circle_size;
+        const y = std.math.sin(val * std.math.pi * 2) * circle_size;
+        lut[i] = rl.Vector3.init(x, 0, y);
+    }
+    return lut;
+}
+
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     // const text_alloc = aloc.gpa;
-    const on_medium: RenderMedium = RenderMedium{ .window = win };
 
     var tmln = try Timeline.init();
 
     var _exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     _exit.selfReference();
 
-    try render_model(&arena, on_medium, &_exit, &tmln);
+    try render_model(arena, win, &_exit, &tmln);
 }
