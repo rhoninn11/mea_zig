@@ -2,6 +2,7 @@ const rl = @import("raylib");
 const std = @import("std");
 const protos = @import("../gen/comfy.pb.zig");
 
+// simple debug info about image protbufer
 pub fn infoAboutProtoImg(img_proto: *protos.Image) void {
     switch (img_proto.pixels) {
         .Owned => |hmm| std.debug.print("img pixel size: {d}\n", .{hmm.str.len}),
@@ -15,6 +16,7 @@ pub fn infoAboutProtoImg(img_proto: *protos.Image) void {
     }
 }
 
+// read protofile with image
 pub fn loadImage(aloc: *std.mem.Allocator, file: []const u8) !protos.Image {
     const MB = 1024 * 1024;
     const cwd = std.fs.cwd();
@@ -26,6 +28,7 @@ pub fn loadImage(aloc: *std.mem.Allocator, file: []const u8) !protos.Image {
     return img_proto;
 }
 
+// imgge protobuf as raylib image
 fn imgProtoToRl(proto_img: *protos.Image) rl.Image {
     const proto_pixels = proto_img.pixels.Owned.str.ptr;
     return rl.Image{
@@ -37,6 +40,7 @@ fn imgProtoToRl(proto_img: *protos.Image) rl.Image {
     };
 }
 
+// render of protobufer serialized image to png with raylib
 pub fn protobufTest() !void {
     // memory core
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

@@ -13,3 +13,10 @@ pub fn act_II(ob: *obiekt) void {
 }
 
 pub const Module = @This();
+
+pub const Nowomowa = enum {
+    rel,
+    essa,
+    frl,
+    ngl,
+};

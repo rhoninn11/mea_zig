@@ -1,7 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
 const core = @import("core.zig");
-const view = @import("view.zig");
 
 const AppMemory = core.AppMemory;
 const RLWindow = core.RLWindow;
@@ -91,8 +90,14 @@ const ChessRenderState = struct {
 
 fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
     const center = rl.Vector3.init(0, 0, 0);
-    var camera = view.cameraPersp();
-    camera.target = center;
+    var camera = rl.Camera{
+        .up = rl.Vector3.init(0, 1, 0),
+        .position = center,
+        .target = center,
+        .fovy = 60,
+        .projection = rl.CameraProjection.camera_perspective,
+    };
+    camera.target = rl.Vector3.init(0, 0, 0);
     // view = camera.getMatrix();
     const camera_pos = rl.Vector3.init(0, 1, -2);
     camera.position = camera_pos;
@@ -140,7 +145,7 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     // const text_alloc = aloc.gpa;
-    const on_medium: RenderMedium = RenderMedium{ .rlwin = win };
+    const on_medium: RenderMedium = RenderMedium{ .window = win };
 
     var tmln = try Timeline.init();
 
