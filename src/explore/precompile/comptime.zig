@@ -44,6 +44,13 @@ pub fn examineType(comptime module: type) void {
     //     std.debug.print("name: {s}, declt type: {s}", .{ decl.name, b });
     // }
     std.debug.print("\n", .{});
+    // Aha dobra jaki jest cel:
+    //  Bo chiałem sobie wyprintować wszystkie pola jakie znajdują się w module
+    //  Ale zrozumiełem, że comptimie trochę inne zasady są co do krzystania z formatowania tekstu
+    //
+    //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
+    //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
+    //  potem je odczytać
 }
 
 // fn putIn(comptime slice: []u8, comptime text: []const u8) comptime []u8 {
