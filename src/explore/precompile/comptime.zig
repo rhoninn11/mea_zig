@@ -6,19 +6,6 @@ const cModule = @cImport({
 
 const zigModule = @import("plainType.zig");
 
-// fn defaultInt() {
-//     return std.meta.Int(std.builtin.Signedness.unsigned, 16);
-// }
-
-// test "my understanding of type in comptime" {
-//     const T = std.builtin.Type;
-//     const a = @typeInfo(T);
-//     const b = comptime T{ .Int = defaultInt() };
-//     comptime {
-//         try std.testing.expectEqual(@TypeOf(a), @TypeOf(b));
-//     }
-// }
-
 const TypeBin = struct {
     bin: std.builtin.Type,
     count: 0,
@@ -28,58 +15,77 @@ const TypeBIns = struct {
     bins: [8]TypeBin,
 };
 
-pub fn examineType(comptime module: type) void {
-    const name = @typeName(module);
-    const modul_as_struct = @typeInfo(module).Struct;
-
-    const fields = modul_as_struct.fields;
-    const decls = modul_as_struct.decls;
-    const f_n = fields.len;
-    const d_n = decls.len;
-
-    std.debug.print("typeOf( {s} ):\n\tdecls - {d}\n\tfields - {d}\n", .{ name, d_n, f_n });
-    // for (modul_as_struct.decls) |decl| {
-    //     const decl_type = @TypeOf(@field(a, decl.name));
-    //     const b = @typeName(decl_type);
-    //     std.debug.print("name: {s}, declt type: {s}", .{ decl.name, b });
-    // }
-    std.debug.print("\n", .{});
-    // Aha dobra jaki jest cel:
-    //  Bo chiałem sobie wyprintować wszystkie pola jakie znajdują się w module
-    //  Ale zrozumiełem, że comptimie trochę inne zasady są co do krzystania z formatowania tekstu
-    //
-    //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
-    //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
-    //  potem je odczytać
+fn summaryLen(about: type) u64 {
+    var counter = std.io.countingWriter(std.io.null_writer);
+    writeSummary(counter.writer().any(), about);
+    return counter.bytes_written;
 }
 
-// fn putIn(comptime slice: []u8, comptime text: []const u8) comptime []u8 {
-//     // hmmm
-// }
+fn printEnum(writer: anytype, e: std.builtin.Type.Enum) void {
+    const prefix = "\t\t";
+    const f_n = e.fields.len;
+    const d_n = e.decls.len;
 
-fn slicesAtComptime() void {
-    comptime var mesg_buff = [_]u8{'0'} ** 1024;
-    comptime var mesg_slice = mesg_buff[0..mesg_buff.len];
+    writer.print("{s}\t{d} - fields", .{ prefix, f_n });
+    writer.print("{s}\t{d} - decls", .{ prefix, d_n });
+}
 
-    const name = "miś jogi";
-    const d_n = 1;
-    const f_n = 2;
-    const comptime_info = std.fmt.comptimePrint("typeOf( {s} ):\n", .{name});
-    // how to make this block one comptime liner? może to musi być inline??
-    const len = comptime_info.len;
-    @memcpy(mesg_slice[0..len], comptime_info);
-    mesg_slice = mesg_slice[0..];
+fn writeSummary(writer: anytype, about: type) void {
+    const name = @typeName(about);
+    const as_struct = @typeInfo(about).Struct;
+    const f_n = as_struct.fields.len;
+    const d_n = as_struct.decls.len;
+    writer.print("+++ Type - {s}:\n", .{name}) catch unreachable;
+    writer.print("\t{d} fields:\n", .{f_n}) catch unreachable;
+    for (as_struct.fields) |field| {
+        writer.print("\t{s},", .{field.name}) catch unreachable;
+    }
+    if (f_n != 0) writer.print("\n", .{}) catch unreachable;
 
-    _ = d_n;
-    _ = f_n;
-    // const comptime_info = std.fmt.comptimePrint("\t {d} Fields:\n", .{f_n});
-    // const comptime_info = std.fmt.comptimePrint("\t {d} Declarations:\n", .{d_n});
+    writer.print("\t{d} declarations:\n", .{d_n}) catch unreachable;
+    for (as_struct.decls) |decl| {
+        var declKind = @typeInfo(@TypeOf(@field(about, decl.name)));
+        if (declKind != .Fn) declKind = @typeInfo(@field(about, decl.name));
 
-    std.debug.print("{s}\n", .{comptime_info});
+        // @compileLog(declType);
+        const kind: []const u8 = switch (declKind) {
+            .Fn => "Fn",
+            .Enum => "Enum",
+            .Struct => "Struct",
+            else => "other",
+        };
+        if (declKind == .Enum) {}
+
+        writer.print("\t\t{s: <10} - {s}\n", .{ decl.name, kind }) catch unreachable;
+    }
+    writer.print("\n", .{}) catch unreachable;
+}
+
+fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
+    const len = comptime summaryLen(module);
+    comptime {
+        var summary_buff: [len:0]u8 = undefined;
+        var fbs = std.io.fixedBufferStream(&summary_buff);
+        var wrtr = fbs.writer();
+        writeSummary(wrtr.any(), module);
+        const final = summary_buff;
+        return &final;
+    }
 }
 
 pub fn experiment() void {
     // examineType(cModule);
     // examineType(zigModule);
-    slicesAtComptime();
+    examineType(zigModule);
+}
+
+pub fn examineType(comptime module: type) void {
+    const module_summary = comptime typeSummary(module);
+    std.debug.print("{s}\n", .{module_summary});
+
+    //
+    //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
+    //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
+    //  potem je odczytać
+
 }
