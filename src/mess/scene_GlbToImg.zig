@@ -1,7 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
 const core = @import("core.zig");
-const log = @import("log.zig");
 const utils = @import("utils.zig");
 
 const AppMemory = core.AppMemory;
@@ -62,9 +61,9 @@ fn render_model() !void {
         // const b = model_size.scale(0.5);
 
         // bbmodel_size.scale(0.5);
-        log.logVec3("model size:", model_size);
-        log.logVec3("bb min:", bb.min);
-        log.logVec3("bb max:", bb.max);
+        utils.debugVec3("model size:", model_size);
+        utils.debugVec3("bb min:", bb.min);
+        utils.debugVec3("bb max:", bb.max);
 
         on_medium.begin();
         defer on_medium.end();

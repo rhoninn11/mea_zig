@@ -1,7 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
 const core = @import("core.zig");
-const log = @import("log.zig");
 const utils = @import("utils.zig");
 const view = @import("view.zig");
 

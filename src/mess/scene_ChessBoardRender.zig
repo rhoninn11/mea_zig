@@ -117,7 +117,7 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
         exiter.update(delta_ms);
         total_s += delta_ms / 1000;
 
-        rl.updateCamera(&camera, rl.CameraMode.camera_free);
+        rl.updateCamera(&camera, rl.CameraMode.camera_custom);
 
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
@@ -145,7 +145,7 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     const arena = aloc.arena;
     // const text_alloc = aloc.gpa;
-    const on_medium: RenderMedium = RenderMedium{ .window = win };
+    const on_medium: RenderMedium = RenderMedium{ .rlwin = win };
 
     var tmln = try Timeline.init();
 

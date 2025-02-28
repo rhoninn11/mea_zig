@@ -11,7 +11,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .using_comptime;
+    const selector: examples = .rl_unified;
     const core = @import("mess/core.zig");
     switch (selector) {
         .rl_inertia => {
@@ -38,7 +38,7 @@ pub fn main() !void {
         },
         .using_comptime => {
             const cpp_xd = @import("explore/precompile/comptime.zig");
-            cpp_xd.experiment();
+            cpp_xd.comptimeExperiment();
         },
         .using_fs => {
             const fs_exp = @import("explore/filesystem.zig");

@@ -6,15 +6,7 @@ const cModule = @cImport({
 
 const zigModule = @import("plainType.zig");
 
-const TypeBin = struct {
-    bin: std.builtin.Type,
-    count: 0,
-};
-
-const TypeBIns = struct {
-    bins: [8]TypeBin,
-};
-
+// -----
 fn summaryLen(about: type) u64 {
     var counter = std.io.countingWriter(std.io.null_writer);
     writeSummary(counter.writer().any(), about);
@@ -22,19 +14,59 @@ fn summaryLen(about: type) u64 {
 }
 
 fn printEnum(writer: anytype, e: std.builtin.Type.Enum) void {
-    const prefix = "\t\t";
     const f_n = e.fields.len;
     const d_n = e.decls.len;
 
-    writer.print("{s}\t{d} - fields", .{ prefix, f_n });
-    writer.print("{s}\t{d} - decls", .{ prefix, d_n });
+    try writer.print("\t{d} - fields\n", .{f_n});
+    try writer.print("\t{d} - decls\n", .{d_n});
+}
+
+const Type = std.builtin.Type;
+
+const Tname = struct {
+    t: Type,
+    name: []const u8,
+};
+
+fn stringDecl_manual(of: type, name: []const u8) Tname {
+    var declKind = @typeInfo(@TypeOf(@field(of, name)));
+    if (declKind != .Fn) declKind = @typeInfo(@field(of, name));
+
+    return Tname{
+        .t = declKind,
+        .name = switch (declKind) {
+            .Fn => "Fn",
+            .Enum => "Enum",
+            .Struct => "Struct",
+            else => "other",
+        },
+    };
+}
+
+// print declaration of struct to writer
+fn printDeclaration(writer: anytype, comptime of: type) void {
+    const as_struct = @typeInfo(of).Struct;
+    const decle_num = as_struct.decls.len;
+
+    try writer.print("\t{d} declarations:\n", .{decle_num});
+
+    for (as_struct.decls) |decl| {
+        const name = decl.name;
+        const kind = stringDecl_manual(of, name);
+        writer.print("{s: <10} - {s}\n", .{ decl.name, kind.name }) catch unreachable;
+        if (kind.t == .Enum) {
+            const enumeration = @typeInfo(@field(of, name)).Enum;
+            // _ = enumeration;
+            printEnum(writer, enumeration);
+        }
+    }
 }
 
 fn writeSummary(writer: anytype, about: type) void {
     const name = @typeName(about);
     const as_struct = @typeInfo(about).Struct;
     const f_n = as_struct.fields.len;
-    const d_n = as_struct.decls.len;
+
     writer.print("+++ Type - {s}:\n", .{name}) catch unreachable;
     writer.print("\t{d} fields:\n", .{f_n}) catch unreachable;
     for (as_struct.fields) |field| {
@@ -42,22 +74,7 @@ fn writeSummary(writer: anytype, about: type) void {
     }
     if (f_n != 0) writer.print("\n", .{}) catch unreachable;
 
-    writer.print("\t{d} declarations:\n", .{d_n}) catch unreachable;
-    for (as_struct.decls) |decl| {
-        var declKind = @typeInfo(@TypeOf(@field(about, decl.name)));
-        if (declKind != .Fn) declKind = @typeInfo(@field(about, decl.name));
-
-        // @compileLog(declType);
-        const kind: []const u8 = switch (declKind) {
-            .Fn => "Fn",
-            .Enum => "Enum",
-            .Struct => "Struct",
-            else => "other",
-        };
-        if (declKind == .Enum) {}
-
-        writer.print("\t\t{s: <10} - {s}\n", .{ decl.name, kind }) catch unreachable;
-    }
+    printDeclaration(writer, about);
     writer.print("\n", .{}) catch unreachable;
 }
 
@@ -73,12 +90,6 @@ fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
     }
 }
 
-pub fn experiment() void {
-    // examineType(cModule);
-    // examineType(zigModule);
-    examineType(zigModule);
-}
-
 pub fn examineType(comptime module: type) void {
     const module_summary = comptime typeSummary(module);
     std.debug.print("{s}\n", .{module_summary});
@@ -87,5 +98,12 @@ pub fn examineType(comptime module: type) void {
     //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
     //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
     //  potem je odczytać
+    //  istniej nawet sznasa na jej szybkie wykorzystanie w funkcji oznaczonej jako _manual
 
+}
+
+pub fn comptimeExperiment() void {
+    // examineType(cModule);
+    // examineType(zigModule);
+    examineType(zigModule);
 }

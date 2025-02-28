@@ -65,15 +65,10 @@ pub fn windowed_program(mem: *const AppMemory) void {
     const title: [:0]const u8 = "+++ Runing simulation in a window +++";
     rl.initWindow(screenWidth, screenHeight, title.ptr);
     defer rl.closeWindow();
-    union_fn(mem, &window) catch {
+    ScenesModule.union_fn(mem, &window) catch {
         std.debug.print("error cleaning\n", .{});
     };
 }
-
-const Scenes = enum {
-    GeoRender,
-    SimpleRuntime,
-};
 
 const fs = @import("../explore/filesystem.zig");
 
@@ -82,32 +77,40 @@ const scene = @import("simpleScene2D.zig");
 const ChessBoard = @import("scene_ChessBoardRender.zig");
 const GlbPreview = @import("scene_GlbPreview.zig");
 
-// Would be nice if possible of course to call each scene fn with switch
-const AppModules = union(Scenes) {
-    const Self = @This();
-
-    const geoType = geo;
-    const sceneType = scene;
-    const chessType = ChessBoard;
-
-    geo: geoType,
-    scene: sceneType,
-    chess: chessType,
-
-    fn init() AppModules {
-        return Self{ .geo = {} };
-    }
+const Scenes = enum {
+    chess_board,
+    glb_preview,
+    simple_2d_scene,
+    glb_to_image,
 };
 
-fn union_fn(aloc: *const AppMemory, win: *RLWindow) !void {
-    // const filenames = try fs.getAllGlbs(aloc.gpa);
-    // geo.external_glbs = filenames;
-    // defer {
-    //     for (filenames) |file| aloc.gpa.free(file);
-    //     aloc.gpa.free(filenames);
-    // }
-    // try geo.launchAppWindow(aloc, win);
-    // try scene.launchAppWindow(aloc, win);
-    // try ChessBoard.launchAppWindow(aloc, win);
-    try GlbPreview.launchAppWindow(aloc, win);
-}
+// Would be nice if possible of course to call each scene fn with switch
+const ScenesModule = union(Scenes) {
+    const Self = @This();
+
+    const asad = [_]type{ geo, scene, ChessBoard, GlbPreview };
+
+    pub fn union_fn(allocator: *const AppMemory, window: *RLWindow) !void {
+        const selected_scene = .chess_board;
+
+        const a = switch (selected_scene) {
+            .chess_board => ChessBoard.launchAppWindow(allocator, window),
+            .glb_preview => GlbPreview.launchAppWindow(allocator, window),
+            .simple_2d_scene => scene.launchAppWindow(allocator, window),
+            else => return error.NotEnoughData,
+        };
+
+        a catch unreachable;
+
+        // const filenames = try fs.getAllGlbs(aloc.gpa);
+        // geo.external_glbs = filenames;
+        // defer {
+        //     for (filenames) |file| aloc.gpa.free(file);
+        //     aloc.gpa.free(filenames);
+        // }
+        // try geo.launchAppWindow(aloc, win);
+        // try scene.launchAppWindow(aloc, win);
+        // try ChessBoard.launchAppWindow(aloc, win);
+        // try GlbPreview.launchAppWindow(allocator, window);
+    }
+};
