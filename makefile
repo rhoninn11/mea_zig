@@ -11,7 +11,7 @@ run_app:
 build_app:
 	zig build --prefix fs
 
-test_app:
+test:
 	zig build --prefix fs test
 
 run_wasm:

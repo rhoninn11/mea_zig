@@ -4,7 +4,7 @@ const cModule = @cImport({
     @cInclude("some_c.h");
 });
 
-const zigModule = @import("plainType.zig");
+const zigModule = @import("testnaemspace.zig");
 
 // -----
 fn summaryLen(about: type) u64 {
@@ -14,7 +14,7 @@ fn summaryLen(about: type) u64 {
 }
 
 fn printEnum(writer: anytype, e: Kind) void {
-    const enumInfo = e.type_info.Enum;
+    const enumInfo = e.lower_type.Enum;
     const f_n = enumInfo.fields.len;
     const d_n = enumInfo.decls.len;
 
@@ -32,40 +32,34 @@ const Type = std.builtin.Type;
 
 const Kind = struct {
     type_name: []const u8,
-    just_type: type,
-    type_info: Type,
+    base_type: type,
+    lower_type: Type,
 
     fn init(about: type) Kind {
         return Kind{
-            .just_type = about,
-            .type_info = @typeInfo(about),
+            .base_type = about,
+            .lower_type = @typeInfo(about),
             .type_name = @typeName(about),
         };
     }
 
     fn field(me: *Kind, name: []const u8) Kind {
-        const my_field = @field(me.just_type, name);
-        // const typeInfo = @typeInfo(my_field);
-        // for type will be .Union, for fn is compile error xD
-
         // return type exepte fn resides under that field
-        // so if we further investigate, that type of variable is type not fn
-        // we can init Kind from it
-        // the way to check type is to get builtin.Type
-        // but if we spot that is a function we need extract its type
+        const it_was_not_an_fn = @field(me.base_type, name);
 
-        const fnType = @TypeOf(my_field);
-        return switch (@typeInfo(fnType)) {
-            .Fn => Kind.init(fnType),
-            // for other types then Fn type data is lost
-            else => Kind.init(my_field),
+        const fnType = @TypeOf(it_was_not_an_fn);
+        // for other types then Fn type data is lost
+        const elo: type = switch (@typeInfo(fnType)) {
+            .Fn => fnType,
+            else => Kind.init(it_was_not_an_fn),
         };
+
+        return Kind.init(elo);
     }
 };
 
 fn stringDecl_manual(of: Kind) []const u8 {
-    @compileLog(of);
-    return switch (of.type_info) {
+    return switch (of.lower_type) {
         .Fn => "Fn",
         .Enum => "Enum",
         .Struct => "Struct",
@@ -73,24 +67,48 @@ fn stringDecl_manual(of: Kind) []const u8 {
     };
 }
 
+test "for type travelsal" {
+    try std.testing.expect(@TypeOf(Type) == .Union);
+}
+
+fn grabLowerName(of: Kind) []const u8 {
+    // const val: Type = of.type_info;
+
+    const lower_level: Kind = Kind.init(Type);
+    const lower_type = lower_level.lower_type;
+    if (lower_type == .Union) {
+        const as_union = lower_type.Union;
+        for (as_union.decls) |decl| {
+            const result_name = decl.name;
+            const lower_kind = lower_level.field(decl.name);
+            if (of.lower_type == lower_kind) {
+                @compileLog(result_name);
+            }
+        }
+    }
+
+    return "not fully implemented";
+}
+
 fn isEnum(kind: Kind) bool {
-    return kind.type_info == .Enum;
+    return kind.lower_type == .Enum;
 }
 
 // print declaration of struct to writer
 fn printDeclaration(writer: anytype, comptime of: type) void {
     var top_kind = Kind.init(of);
-    const as_struct = top_kind.type_info.Struct;
+    const as_struct = top_kind.lower_type.Struct;
     const decle_num = as_struct.decls.len;
 
     try writer.print("\t{d} declarations:\n", .{decle_num});
 
     for (as_struct.decls) |decl| {
-        const sub_type = top_kind.field(decl.name);
+        const member = top_kind.field(decl.name);
         // const sub_kind = Kind.init();
+        const lower_name = stringDecl_manual(member);
         // const kind_name = stringDecl_manual(@field(lhs: anytype, comptime field_name: []const u8));
 
-        writer.print("{s: <10} - {s}\n", .{ decl.name, sub_type.type_name }) catch unreachable;
+        writer.print("{s: <16} + {s: >7} -  {s}\n", .{ decl.name, lower_name, member.type_name }) catch unreachable;
         if (isEnum(top_kind)) {
             // @compileLog(kind.type_name);
             // printEnum(writer, kind);
@@ -103,7 +121,7 @@ fn writeSummary(writer: anytype, about: type) void {
     const as_struct = @typeInfo(about).Struct;
     const f_n = as_struct.fields.len;
 
-    writer.print("+++ Type - {s}:\n", .{name}) catch unreachable;
+    writer.print("+++ looking at - {s}:\n", .{name}) catch unreachable;
     writer.print("\t{d} fields:\n", .{f_n}) catch unreachable;
     for (as_struct.fields) |field| {
         writer.print("\t{s},", .{field.name}) catch unreachable;
