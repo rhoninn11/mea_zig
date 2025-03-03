@@ -1,4 +1,5 @@
 const std = @import("std");
+const colisionTesting = @import("custom_leet_code/test_colision.zig");
 
 const examples = enum {
     rl_inertia,
@@ -49,4 +50,5 @@ pub fn main() !void {
 
 test {
     std.testing.refAllDecls(@This());
+    std.testing.refAllDecls(colisionTesting);
 }
