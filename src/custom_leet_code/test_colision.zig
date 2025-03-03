@@ -7,28 +7,32 @@
 // Każda sfera jest reprezentowana przez swoją pozycję (x, y, z) oraz promień r. Dwie sfery kolidują ze sobą, jeśli odległość między ich środkami jest mniejsza lub równa sumie ich promieni.
 // Dodatkowo, funkcja powinna zwracać wektor przesunięcia (displacement vector) potrzebny do rozdzielenia sfer, jeśli kolidują.
 
+const rl = @import("raylib");
 const fvec3 = @Vector(3, f32);
 
-const Sphere = struct {
+pub const Sphere = struct {
     size: f32,
     pos: fvec3,
 
     pub fn qSize(sphere: Sphere) f32 {
         return sphere.size * sphere.size;
     }
+    pub fn rlPos(s: Sphere) rl.Vector3 {
+        return rl.Vector3.init(s.pos[0], s.pos[1], s.pos[2]);
+    }
 };
 
-const TachinState = enum {
+pub const TachinState = enum {
     far,
     close,
     touching,
 };
 
-fn tachin(one: Sphere, second: Sphere) TachinState {
+pub fn tachin(one: Sphere, second: Sphere) TachinState {
     const delta = second.pos - one.pos;
     const dist = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
 
-    const size_cond = one.qSize() * second.qSize();
+    const size_cond = one.qSize() + second.qSize();
 
     if (dist > size_cond) {
         return TachinState.far;

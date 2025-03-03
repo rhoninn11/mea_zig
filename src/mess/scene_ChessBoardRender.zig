@@ -15,7 +15,7 @@ const Allocator = std.mem.Allocator;
 
 const ChessRenderState = struct {
     const Self = @This();
-    alloc: *Allocator,
+    alloc: Allocator,
     x_pos: []f32,
     y_pos: []f32,
     z_pos: []f32,
@@ -28,7 +28,7 @@ const ChessRenderState = struct {
         self.alloc.free(self.col);
     }
 
-    pub fn init(alloc: *Allocator) !Self {
+    pub fn init(alloc: Allocator) !Self {
         const xn = 8;
         const yn = xn;
         const fields = 64;
@@ -88,28 +88,30 @@ const ChessRenderState = struct {
     }
 };
 
+const Colision = @import("../custom_leet_code/test_colision.zig");
+const view = @import("view.zig");
+
 fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
-    const center = rl.Vector3.init(0, 0, 0);
-    var camera = rl.Camera{
-        .up = rl.Vector3.init(0, 1, 0),
-        .position = center,
-        .target = center,
-        .fovy = 60,
-        .projection = rl.CameraProjection.camera_perspective,
-    };
+    var camera = view.cameraPersp();
     camera.target = rl.Vector3.init(0, 0, 0);
     // view = camera.getMatrix();
     const camera_pos = rl.Vector3.init(0, 1, -2);
     camera.position = camera_pos;
 
-    var varAlloc = alloc;
-    const for_real = try varAlloc.alloc(f32, 88);
-    _ = for_real;
-    const chess_state = try ChessRenderState.init(&varAlloc);
+    const chess_state = try ChessRenderState.init(alloc);
     defer chess_state.deinit();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
+
+    const grounded = Colision.Sphere{
+        .pos = @splat(0),
+        .size = 0.3,
+    };
+    var dynamic = Colision.Sphere{
+        .pos = @splat(0),
+        .size = 0.1,
+    };
 
     var total_s: f32 = 0;
     while (exiter.toContinue()) {
@@ -121,7 +123,16 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
 
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
+        const osc_3: f32 = std.math.cos(total_s * 0.5);
         const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{osc});
+
+        dynamic.pos[0] = 3 * osc_3;
+
+        const sColor = switch (Colision.tachin(grounded, dynamic)) {
+            .far => rl.Color.orange,
+            .touching => rl.Color.purple,
+            else => rl.Color.pink,
+        };
 
         on_medium.begin();
         defer on_medium.end();
@@ -136,6 +147,9 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.black);
 
             chess_state.repr();
+
+            rl.drawSphere(grounded.rlPos(), grounded.size, sColor);
+            rl.drawSphere(dynamic.rlPos(), dynamic.size, sColor);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
