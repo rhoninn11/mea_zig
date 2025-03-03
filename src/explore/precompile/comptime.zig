@@ -16,83 +16,57 @@ fn summaryLen(about: type) u64 {
 fn printEnum(writer: anytype, e: Kind) void {
     const enumInfo = e.lower_type.Enum;
     const f_n = enumInfo.fields.len;
-    const d_n = enumInfo.decls.len;
+    // const d_n = enumInfo.decls.len;
 
-    try writer.print("\t{d} - fields\n", .{f_n});
-    for (e.fields) |field| {
-        try writer.print("{s} - {d}, ", .{ field.name, field.value });
+    writer.print("\t{d} - fields\n", .{f_n}) catch unreachable;
+    for (enumInfo.fields) |field| {
+        writer.print(" - {s: <10} - {d}\n", .{ field.name, field.value }) catch unreachable;
     }
-    try writer.print("\n", .{});
+    writer.print("\n", .{}) catch unreachable;
+}
 
-    try writer.print("\t{d} - decls\n", .{d_n});
-    @compileLog(@typeName(@TypeOf(e)));
+test "runtime enum field names" {
+    const TestEnum = zigModule.Wyliczanka;
+    const TestUnion = zigModule.Bunch;
+    const a = TestEnum.due;
+    const b = TestEnum.rike;
+    const c = TestUnion{ .of_one = b };
+
+    try std.testing.expectEqualStrings("due", @tagName(a));
+    try std.testing.expectEqualStrings("rike", @tagName(b));
+    try std.testing.expectEqualStrings("of_one", @tagName(c));
 }
 
 const Type = std.builtin.Type;
 
 const Kind = struct {
-    type_name: []const u8,
     base_type: type,
+    base_name: []const u8,
     lower_type: Type,
+    lower_name: []const u8,
 
     fn init(about: type) Kind {
+        const type_info = @typeInfo(about);
         return Kind{
             .base_type = about,
-            .lower_type = @typeInfo(about),
-            .type_name = @typeName(about),
+            .base_name = @typeName(about),
+            .lower_type = type_info,
+            .lower_name = @tagName(type_info),
         };
     }
 
-    fn field(me: *Kind, name: []const u8) Kind {
-        // return type exepte fn resides under that field
-        const it_was_not_an_fn = @field(me.base_type, name);
+    fn field(me: Kind, name: []const u8) Kind {
+        const field_value = @field(me.base_type, name);
+        const field_type = @TypeOf(field_value);
 
-        const fnType = @TypeOf(it_was_not_an_fn);
-        // for other types then Fn type data is lost
-        const elo: type = switch (@typeInfo(fnType)) {
-            .Fn => fnType,
-            else => Kind.init(it_was_not_an_fn),
+        const clean_type: type = switch (@typeInfo(field_type)) {
+            .Fn => field_type,
+            else => field_value,
         };
 
-        return Kind.init(elo);
+        return Kind.init(clean_type);
     }
 };
-
-fn stringDecl_manual(of: Kind) []const u8 {
-    return switch (of.lower_type) {
-        .Fn => "Fn",
-        .Enum => "Enum",
-        .Struct => "Struct",
-        else => "other",
-    };
-}
-
-test "for type travelsal" {
-    try std.testing.expect(@TypeOf(Type) == .Union);
-}
-
-fn grabLowerName(of: Kind) []const u8 {
-    // const val: Type = of.type_info;
-
-    const lower_level: Kind = Kind.init(Type);
-    const lower_type = lower_level.lower_type;
-    if (lower_type == .Union) {
-        const as_union = lower_type.Union;
-        for (as_union.decls) |decl| {
-            const result_name = decl.name;
-            const lower_kind = lower_level.field(decl.name);
-            if (of.lower_type == lower_kind) {
-                @compileLog(result_name);
-            }
-        }
-    }
-
-    return "not fully implemented";
-}
-
-fn isEnum(kind: Kind) bool {
-    return kind.lower_type == .Enum;
-}
 
 // print declaration of struct to writer
 fn printDeclaration(writer: anytype, comptime of: type) void {
@@ -104,14 +78,12 @@ fn printDeclaration(writer: anytype, comptime of: type) void {
 
     for (as_struct.decls) |decl| {
         const member = top_kind.field(decl.name);
-        // const sub_kind = Kind.init();
-        const lower_name = stringDecl_manual(member);
-        // const kind_name = stringDecl_manual(@field(lhs: anytype, comptime field_name: []const u8));
-
-        writer.print("{s: <16} + {s: >7} -  {s}\n", .{ decl.name, lower_name, member.type_name }) catch unreachable;
-        if (isEnum(top_kind)) {
-            // @compileLog(kind.type_name);
-            // printEnum(writer, kind);
+        writer.print("{s: <16} + {s: >7} -  {s}\n", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
+        if (member.lower_type == .Enum) {
+            printEnum(writer, member);
+        }
+        if (member.lower_type == .Union) {
+            writer.print("+++\n", .{}) catch unreachable;
         }
     }
 }

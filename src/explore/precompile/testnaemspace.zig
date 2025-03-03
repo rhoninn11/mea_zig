@@ -3,13 +3,13 @@ pub const Self = @This();
 pub const Observer = struct { a: u8, b: u8 };
 
 pub fn drawInsight(ob: *Observer) void {
-    const a = ob.a;
-    _ = a;
+    const aaa = ob.a;
+    _ = aaa;
 }
 
 pub fn takeBreath(ob: *Observer) void {
-    const b = ob.b;
-    _ = b;
+    const bbb = ob.b;
+    _ = bbb;
 }
 pub const Wyliczanka = enum {
     ene,
@@ -29,3 +29,5 @@ pub const Bunch = union(enum) {
     of_one: Wyliczanka,
     of_two: Nowomowa,
 };
+
+// pub const A = 12;
