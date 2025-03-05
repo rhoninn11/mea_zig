@@ -1,5 +1,5 @@
 const std = @import("std");
-const colisionTesting = @import("custom_leet_code/test_colision.zig");
+const colisionTesting = @import("mess/sphere.zig");
 
 const examples = enum {
     rl_inertia,

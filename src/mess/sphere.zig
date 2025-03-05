@@ -8,7 +8,7 @@
 // Dodatkowo, funkcja powinna zwracać wektor przesunięcia (displacement vector) potrzebny do rozdzielenia sfer, jeśli kolidują.
 
 const rl = @import("raylib");
-const fvec3 = @Vector(3, f32);
+const fvec3 = @import("../mess/math.zig").fvec3;
 
 pub const Sphere = struct {
     size: f32,
