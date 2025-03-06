@@ -1,6 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
-const math = @import("../mods/core/math.zig");
+const math = @import("math.zig");
 const Allocator = std.mem.Allocator;
 
 pub const AppMemory = struct {
@@ -28,7 +28,6 @@ pub fn DeployInMemory(program: InternalMain) void {
     program(&mm);
 }
 
-const fv2 = @import("../mods/core/math.zig").fv2;
 pub const RLWindow = struct {
     corner: math.fv2,
     size: math.fv2,
@@ -58,8 +57,8 @@ pub fn windowed_program(mem: *const AppMemory) void {
     const screenWidth = 1600;
     const screenHeight = 900;
     var window = RLWindow{
-        .corner = fv2{ screenWidth, 0 },
-        .size = fv2{ screenWidth, screenWidth },
+        .size = .{ screenWidth, screenWidth },
+        .corner = .{ screenWidth, 0 },
     };
 
     const title: [:0]const u8 = "+++ Runing simulation in a window +++";

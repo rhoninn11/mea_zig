@@ -4,17 +4,23 @@ const protobuf = @import("protobuf");
 const Compile = std.Build.Step.Compile;
 const Dependency = std.Build.Dependency;
 
-// --sysroot /opt/emsdk/upstream/emscripten
+var scope_b: ?*std.Build = null;
+var scope_tar: ?std.Build.ResolvedTarget = null;
+var scope_optim: ?std.builtin.OptimizeMode = null;
+var scope_opts: ?BuildOptions = null;
 
 const BuildOptions = struct {
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 
     pub fn init(b: *std.Build) BuildOptions {
-        return BuildOptions{
-            .target = b.standardTargetOptions(.{}),
-            .optimize = b.standardOptimizeOption(.{}),
+        scope_tar = b.standardTargetOptions(.{});
+        scope_optim = b.standardOptimizeOption(.{});
+        scope_opts = BuildOptions{
+            .target = scope_tar.?,
+            .optimize = scope_optim.?,
         };
+        return scope_opts.?;
     }
 };
 
@@ -28,45 +34,36 @@ const BuildUnit = struct {
             .bldOpt = BuildOptions.init(b),
         };
     }
-
-    // there is no need for zgltf now
-    // pub fn addGltfModule(self: BuildUnit, compileUnit: *Compile) void {
-    //     const zgltf_path = "tmp/zgltf/src/main.zig";
-    //     const zgltf_mod = self.bld.addModule("zgltf", .{ .root_source_file = self.bld.path(zgltf_path) });
-    //     compileUnit.root_module.addImport("zgltf", zgltf_mod);
-    // }
-
-    pub fn addLib(self: BuildUnit, compileUnit: *Compile, name: []const u8) *Dependency {
-        const dep = self.bld.dependency(name, .{
-            .target = self.bldOpt.target,
-            .optimize = self.bldOpt.optimize,
-        });
-
-        compileUnit.root_module.addImport(name, dep.module(name));
-        return dep;
-    }
 };
+
+fn addLib(b: *std.Build, compileUnit: *Compile, name: []const u8) *Dependency {
+    const dep = b.dependency(name, .{
+        .target = scope_tar.?,
+        .optimize = scope_optim.?,
+    });
+
+    compileUnit.root_module.addImport(name, dep.module(name));
+    return dep;
+}
 
 fn build_options(bld: *std.Build) BuildOptions {
     return BuildOptions.init(bld);
 }
 
-pub fn add_raylib(blu: BuildUnit, exe: *Compile) void {
-    const bld = blu.bld;
-    const bld_opts = blu.bldOpt;
-
-    const raylib_dep = bld.dependency("raylib-zig", .{
-        .target = bld_opts.target,
-        .optimize = bld_opts.optimize,
-    });
-
+pub fn addRaylib(b: *std.Build, exe: *Compile) void {
+    const raylib_dep = b.dependency("raylib-zig", scope_opts.?);
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
-    exe.linkLibrary(raylib_artifact);
-    const raylib = raylib_dep.module("raylib"); // main raylib module
-    exe.root_module.addImport("raylib", raylib);
 
-    const raygui = raylib_dep.module("raygui"); // raygui module
-    exe.root_module.addImport("raygui", raygui);
+    // put rest raylib libs "here"
+    const lib_zoo: []const []const u8 = &.{
+        "raylib",
+        "raygui",
+    };
+    for (lib_zoo) |lib_name| {
+        const module = raylib_dep.module(lib_name);
+        exe.root_module.addImport(lib_name, module);
+    }
+    exe.linkLibrary(raylib_artifact);
 }
 
 pub fn generateProto(blu: BuildUnit, dep: *Dependency) void {
@@ -112,13 +109,13 @@ pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
     const compile_paths = exeTestTupla(blu, main_src);
     for (compile_paths) |compile| {
         compile.addIncludePath(b.path("src/explore/precompile/include/"));
-        add_raylib(blu, compile);
+        addRaylib(b, compile);
     }
 
     const exe = compile_paths[0];
     // blu.addGltfModule(exe);
-    _ = blu.addLib(exe, "zigimg");
-    const pb = blu.addLib(exe, "protobuf");
+    _ = addLib(b, exe, "zigimg");
+    const pb = addLib(b, exe, "protobuf");
     generateProto(blu, pb);
     b.installArtifact(exe);
     const run_exe = b.addRunArtifact(exe);

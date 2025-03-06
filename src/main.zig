@@ -1,4 +1,5 @@
 const std = @import("std");
+const colisionTesting = @import("mess/sphere.zig");
 
 const examples = enum {
     rl_inertia,
@@ -11,7 +12,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .using_comptime;
+    const selector: examples = .rl_unified;
     const core = @import("mess/core.zig");
     switch (selector) {
         .rl_inertia => {
@@ -49,4 +50,5 @@ pub fn main() !void {
 
 test {
     std.testing.refAllDecls(@This());
+    std.testing.refAllDecls(colisionTesting);
 }

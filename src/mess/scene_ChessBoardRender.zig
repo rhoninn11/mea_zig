@@ -15,7 +15,7 @@ const Allocator = std.mem.Allocator;
 
 const ChessRenderState = struct {
     const Self = @This();
-    alloc: *Allocator,
+    alloc: Allocator,
     x_pos: []f32,
     y_pos: []f32,
     z_pos: []f32,
@@ -28,7 +28,7 @@ const ChessRenderState = struct {
         self.alloc.free(self.col);
     }
 
-    pub fn init(alloc: *Allocator) !Self {
+    pub fn init(alloc: Allocator) !Self {
         const xn = 8;
         const yn = xn;
         const fields = 64;
@@ -48,7 +48,7 @@ const ChessRenderState = struct {
         // populate x data
         const x_pos = state.x_pos;
         @memset(x_pos, 3);
-        for (0..fields) |x| x_pos[x] = @floatFromInt(x);
+        for (0..fields) |x| x_pos[x] = @floatFromInt(@mod(x, 8));
         // for (0..xn) |x| x_pos[x] = @floatFromInt(x);
         // const stencil: []f32 = x_pos[0..xn];
         // for (1..yn) |y| {
@@ -67,12 +67,11 @@ const ChessRenderState = struct {
         @memset(state.z_pos, 0);
         // populate color data
         for (0..fields) |i| {
-            state.col[i] = switch (@mod(i, 5)) {
-                0 => rl.Color.white,
-                1 => rl.Color.black,
-                2 => rl.Color.magenta,
-                3 => rl.Color.maroon,
-                4 => rl.Color.lime,
+            state.col[i] = switch (@mod(i, 16)) {
+                inline 0, 2, 4, 6 => rl.Color.white,
+                inline 1, 3, 5, 7 => rl.Color.black,
+                inline 8, 10, 12, 14 => rl.Color.black,
+                inline 9, 11, 13, 15 => rl.Color.white,
                 else => unreachable,
             };
         }
@@ -88,28 +87,31 @@ const ChessRenderState = struct {
     }
 };
 
+const sphere = @import("sphere.zig");
+const math = @import("math.zig");
+const view = @import("view.zig");
+
 fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
-    const center = rl.Vector3.init(0, 0, 0);
-    var camera = rl.Camera{
-        .up = rl.Vector3.init(0, 1, 0),
-        .position = center,
-        .target = center,
-        .fovy = 60,
-        .projection = rl.CameraProjection.camera_perspective,
-    };
+    var camera = view.cameraPersp();
     camera.target = rl.Vector3.init(0, 0, 0);
     // view = camera.getMatrix();
     const camera_pos = rl.Vector3.init(0, 1, -2);
     camera.position = camera_pos;
 
-    var varAlloc = alloc;
-    const for_real = try varAlloc.alloc(f32, 88);
-    _ = for_real;
-    const chess_state = try ChessRenderState.init(&varAlloc);
+    const chess_state = try ChessRenderState.init(alloc);
     defer chess_state.deinit();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
+
+    var main = sphere.Sphere{
+        .pos = @splat(0),
+        .size = 0.3,
+    };
+    var dynamic = sphere.Sphere{
+        .pos = @splat(0),
+        .size = 0.1,
+    };
 
     var total_s: f32 = 0;
     while (exiter.toContinue()) {
@@ -117,11 +119,22 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
         exiter.update(delta_ms);
         total_s += delta_ms / 1000;
 
-        rl.updateCamera(&camera, rl.CameraMode.camera_custom);
+        rl.updateCamera(&camera, rl.CameraMode.camera_third_person);
+
+        main.pos = math.asRelVec3(camera.target);
 
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
+        const osc_3: f32 = std.math.cos(total_s * 0.5);
         const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{osc});
+
+        dynamic.pos[0] = 3 * osc_3;
+
+        const sColor = switch (sphere.tachin(main, dynamic)) {
+            .far => rl.Color.orange,
+            .touching => rl.Color.purple,
+            else => rl.Color.pink,
+        };
 
         on_medium.begin();
         defer on_medium.end();
@@ -136,6 +149,10 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.black);
 
             chess_state.repr();
+
+            const obs_pos = math.fvec3Rl(main.pos);
+            rl.drawSphere(obs_pos, main.size, sColor);
+            rl.drawSphere(dynamic.rlPos(), dynamic.size, sColor);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
