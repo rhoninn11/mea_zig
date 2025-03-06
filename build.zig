@@ -4,6 +4,8 @@ const protobuf = @import("protobuf");
 const Compile = std.Build.Step.Compile;
 const Dependency = std.Build.Dependency;
 
+// --sysroot /opt/emsdk/upstream/emscripten
+
 const BuildOptions = struct {
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -129,18 +131,25 @@ pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
     test_step.dependOn(&test_exe.step);
 }
 
+// zig build -Dwasm --sysroot /opt/emsdk/upstream/emscripten
 fn wasmApp(b: *std.Build, main_file: []const u8) !void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
-        .os_tag = .freestanding,
+        .os_tag = .emscripten,
     });
 
     const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
-    const exe = b.addExecutable(.{
+    const exe = b.addStaticLibrary(.{
         .name = "fns",
         .root_source_file = b.path(src_file_path),
         .target = target,
-        .optimize = .ReleaseSmall,
+        .optimize = .Debug,
+        .link_libc = true,
+    });
+    const emcc = b.pathJoin(&.{ b.sysroot.?, "emcc" });
+    _ = b.addSystemCommand(&.{
+        emcc,
+        "",
     });
 
     // <https://github.com/ziglang/zig/issues/8633>
@@ -156,9 +165,7 @@ fn wasmApp(b: *std.Build, main_file: []const u8) !void {
     b.installArtifact(exe);
 }
 
-pub fn appBuildSwitch(b: *std.Build) !void {
-    // const bld_c = b.option(bool, "client", "+++ build client app") orelse false;
-    // const bld_e = b.option(bool, "editor", "+++ build editor app") orelse false;
+pub fn build(b: *std.Build) !void {
     const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (vanila_wasm) {
@@ -166,8 +173,4 @@ pub fn appBuildSwitch(b: *std.Build) !void {
     } else {
         try nativeApp(b, "main.zig");
     }
-}
-
-pub fn build(b: *std.Build) void {
-    appBuildSwitch(b) catch std.debug.print("!!! build failed", .{});
 }
