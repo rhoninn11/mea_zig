@@ -50,9 +50,16 @@ fn build_options(bld: *std.Build) BuildOptions {
     return BuildOptions.init(bld);
 }
 
+const rlz = @import("raylib-zig");
 pub fn addRaylib(b: *std.Build, exe: *Compile) void {
-    const raylib_dep = b.dependency("raylib-zig", scope_opts.?);
+    const raylib_dep = b.dependency("raylib-zig", .{
+        .target = scope_tar.?,
+        .optimize = scope_optim.?,
+        .opengl_version = .gles_3,
+    });
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
+    raylib_artifact.defineCMacro("SUPPORT_FILEFORMAT_JPG", null);
+    raylib_artifact.defineCMacro("SUPPORT_MESH_GENERATION", "ON");
 
     // put rest raylib libs "here"
     const lib_zoo: []const []const u8 = &.{

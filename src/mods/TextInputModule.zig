@@ -41,34 +41,3 @@ const TextBuffor = struct {
         return self.buffor.ptr;
     }
 };
-
-pub const TextEditor = struct {
-    const Self = @This();
-
-    rate_limiter: TimeLock = TimeLock{},
-    text: TextBuffor,
-
-    pub fn spawn(arena: Allocator) !Self {
-        const txt = try TextBuffor.init(arena);
-        return TextEditor{
-            .text = txt,
-        };
-    }
-
-    pub fn collectInput(self: *Self, keys: []KbKey, dt_ms: f32) void {
-        if (self.rate_limiter.lockPass(dt_ms) == false)
-            return;
-
-        over_keys: for (keys) |key| {
-            if (key.hold.base.get()) {
-                self.text.addCharacter(key.hold.decode());
-                self.rate_limiter.arm();
-                break :over_keys;
-            }
-        }
-    }
-
-    pub fn cStr(self: *Self) [*:0]u8 {
-        return self.text.cStr();
-    }
-};
