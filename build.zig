@@ -4,63 +4,63 @@ const protobuf = @import("protobuf");
 const Compile = std.Build.Step.Compile;
 const Dependency = std.Build.Dependency;
 
-var scope_b: ?*std.Build = null;
-var scope_tar: ?std.Build.ResolvedTarget = null;
-var scope_optim: ?std.builtin.OptimizeMode = null;
-var scope_opts: ?BuildOptions = null;
+var scope_build: ?*std.Build = null;
+var scope_target: ?std.Build.ResolvedTarget = null;
+var scope_optimize: ?std.builtin.OptimizeMode = null;
 
-const BuildOptions = struct {
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+var scratchpad: [1024]u8 = undefined;
 
-    pub fn init(b: *std.Build) BuildOptions {
-        scope_tar = b.standardTargetOptions(.{});
-        scope_optim = b.standardOptimizeOption(.{});
-        scope_opts = BuildOptions{
-            .target = scope_tar.?,
-            .optimize = scope_optim.?,
-        };
-        return scope_opts.?;
-    }
-};
+fn initScopeOptions(b: *std.Build) void {
+    scope_build = b;
+    scope_target = b.standardTargetOptions(.{});
+    scope_optimize = b.standardOptimizeOption(.{});
+}
 
-const BuildUnit = struct {
-    bld: *std.Build,
-    bldOpt: BuildOptions,
+fn exe_test_tupla(root_file: []const u8) [2]*Compile {
+    var tupla: [2]*Compile = undefined;
+    const b = scope_build.?;
+    tupla[0] = b.addExecutable(.{
+        .name = "app",
+        .root_source_file = b.path(root_file),
+        .target = scope_target.?,
+        .optimize = scope_optimize.?,
+    });
 
-    pub fn init(b: *std.Build) BuildUnit {
-        return BuildUnit{
-            .bld = b,
-            .bldOpt = BuildOptions.init(b),
-        };
-    }
-};
+    tupla[1] = b.addTest(.{
+        .root_source_file = b.path(root_file),
+        .target = scope_target.?,
+        .optimize = scope_optimize.?,
+    });
+    return tupla;
+}
 
-fn addLib(b: *std.Build, compileUnit: *Compile, name: []const u8) *Dependency {
+fn addDependency(b: *std.Build, compileUnit: *Compile, name: []const u8) *Dependency {
     const dep = b.dependency(name, .{
-        .target = scope_tar.?,
-        .optimize = scope_optim.?,
+        .target = scope_target.?,
+        .optimize = scope_optimize.?,
     });
 
     compileUnit.root_module.addImport(name, dep.module(name));
     return dep;
 }
 
-fn build_options(bld: *std.Build) BuildOptions {
-    return BuildOptions.init(bld);
-}
-
-const rlz = @import("raylib-zig");
 pub fn addRaylib(b: *std.Build, exe: *Compile) void {
+    const rlz = @import("raylib-zig");
+    const target = scope_target.?;
+    const is_wasm = target.result.cpu.arch == .wasm32;
+    const gl_ver: rlz.OpenglVersion = if (is_wasm) .gles_3 else .auto;
+
     const raylib_dep = b.dependency("raylib-zig", .{
-        .target = scope_tar.?,
-        .optimize = scope_optim.?,
-        .opengl_version = .gles_3,
+        .target = scope_target.?,
+        .optimize = scope_optimize.?,
+        .opengl_version = gl_ver,
     });
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
-    raylib_artifact.defineCMacro("SUPPORT_FILEFORMAT_JPG", null);
-    raylib_artifact.defineCMacro("SUPPORT_MESH_GENERATION", "ON");
+    raylib_artifact.defineCMacro("SUPPORT_MESH_GENERATION", null);
 
+    if (is_wasm) {
+        exe.entry = .disabled;
+    }
     // put rest raylib libs "here"
     const lib_zoo: []const []const u8 = &.{
         "raylib",
@@ -73,14 +73,11 @@ pub fn addRaylib(b: *std.Build, exe: *Compile) void {
     exe.linkLibrary(raylib_artifact);
 }
 
-pub fn generateProto(blu: BuildUnit, dep: *Dependency) void {
-    const bld = blu.bld;
-    const bldOpt = blu.bldOpt;
+pub fn generateProto(b: *std.Build, dep: *Dependency) void {
+    const bld_flag = b.step("gen", "compilation of .proto file in proto/");
 
-    const bld_flag = bld.step("gen", "compilation of .proto file in proto/");
-
-    const gen_step = protobuf.RunProtocStep.create(bld, dep.builder, bldOpt.target, .{
-        .destination_directory = bld.path("src/gen"),
+    const gen_step = protobuf.RunProtocStep.create(b, dep.builder, scope_target.?, .{
+        .destination_directory = b.path("src/gen"),
         .source_files = &.{"proto/comfy.proto"},
         .include_directories = &.{},
     });
@@ -88,93 +85,91 @@ pub fn generateProto(blu: BuildUnit, dep: *Dependency) void {
     bld_flag.dependOn(&gen_step.step);
 }
 
-pub fn exeTestTupla(bUnit: BuildUnit, for_file: []const u8) [2]*Compile {
-    const b = bUnit.bld;
-    const bOps = bUnit.bldOpt;
-
-    var tupla: [2]*Compile = undefined;
-    tupla[0] = bUnit.bld.addExecutable(.{
-        .name = "app",
-        .root_source_file = b.path(for_file),
-        .target = bOps.target,
-        .optimize = bOps.optimize,
-    });
-
-    tupla[1] = b.addTest(.{
-        .root_source_file = b.path(for_file),
-        .target = bOps.target,
-        .optimize = bOps.optimize,
-    });
-    return tupla;
-}
-
+// for next tryies with emscripten
+// cmd: zig build -Dtarget=wasm32-emscripten --sysroot /opt/emsdk/upstream/emscripten
 pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
-    const main_src = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
-    defer b.allocator.free(main_src);
-
-    const blu = BuildUnit.init(b);
-    const compile_paths = exeTestTupla(blu, main_src);
-    for (compile_paths) |compile| {
-        compile.addIncludePath(b.path("src/explore/precompile/include/"));
-        addRaylib(b, compile);
+    const compiles = exe_test_tupla(main_file);
+    for (compiles) |c| {
+        c.addIncludePath(b.path("src/explore/precompile/include/"));
+        addRaylib(b, c);
     }
 
-    const exe = compile_paths[0];
+    const exe = compiles[0];
     // blu.addGltfModule(exe);
-    _ = addLib(b, exe, "zigimg");
-    const pb = addLib(b, exe, "protobuf");
-    generateProto(blu, pb);
+    _ = addDependency(b, exe, "zigimg");
+    const pb = addDependency(b, exe, "protobuf");
+    generateProto(b, pb);
     b.installArtifact(exe);
+
     const run_exe = b.addRunArtifact(exe);
     const run_step = b.step("run", "+++ run cli app after build");
     run_step.dependOn(&run_exe.step);
 
-    const tests = compile_paths[1];
+    const tests = compiles[1];
     const test_exe = b.addRunArtifact(tests);
     const test_step = b.step("test", "+++ run unit tests");
     test_step.dependOn(&test_exe.step);
+
+    const sys_cmd = b.addSystemCommand(&.{
+        "echo",
+        "+++ output content sample +++",
+        ">",
+        "zig-out/cmd_out.txt",
+    });
+    const sys_cmd_2 = b.addSystemCommand(&.{"echo"});
+    sys_cmd_2.addArgs(&.{
+        "+++ output content sample +++",
+        ">",
+        "zig-out/cmd_out.txt",
+    });
+    const cmd_step = b.step("cmd", "+++ run system command");
+    cmd_step.dependOn(&sys_cmd_2.step);
+    _ = sys_cmd;
 }
 
 // zig build -Dwasm --sysroot /opt/emsdk/upstream/emscripten
-fn wasmApp(b: *std.Build, main_file: []const u8) !void {
+fn wasmLib(b: *std.Build, main_file: []const u8) !void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .emscripten,
     });
 
     const src_file_path = try std.fmt.allocPrint(b.allocator, "src/{s}", .{main_file});
-    const exe = b.addStaticLibrary(.{
+    const fn_lib = b.addStaticLibrary(.{
         .name = "fns",
         .root_source_file = b.path(src_file_path),
         .target = target,
         .optimize = .Debug,
         .link_libc = true,
     });
-    const emcc = b.pathJoin(&.{ b.sysroot.?, "emcc" });
-    _ = b.addSystemCommand(&.{
-        emcc,
-        "",
-    });
-
     // <https://github.com/ziglang/zig/issues/8633>
-    exe.global_base = 6560;
-    exe.entry = .disabled;
-    exe.rdynamic = true;
-    exe.import_memory = true;
-    exe.stack_size = std.wasm.page_size;
+    fn_lib.global_base = 6560;
+    fn_lib.entry = .disabled;
+    fn_lib.rdynamic = true;
+    fn_lib.import_memory = true;
+    fn_lib.stack_size = std.wasm.page_size;
 
-    exe.initial_memory = std.wasm.page_size * 2;
-    exe.max_memory = std.wasm.page_size * 2;
+    fn_lib.initial_memory = std.wasm.page_size * 2;
+    fn_lib.max_memory = std.wasm.page_size * 2;
 
-    b.installArtifact(exe);
+    const emcc = b.pathJoin(&.{ b.sysroot.?, "emcc" });
+    const em_step = b.addSystemCommand(&.{emcc});
+    em_step.addArgs(&.{
+        "-sEXPORT_ES6",
+    });
+    em_step.addFileArg(fn_lib.getEmittedBin());
+
+    em_step.step.dependOn(&fn_lib.step);
+    b.default_step.dependOn(&em_step.step);
 }
 
 pub fn build(b: *std.Build) !void {
+    initScopeOptions(b);
     const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (vanila_wasm) {
-        try wasmApp(b, "wasmfns.zig");
+        try wasmLib(b, "src/wasmfns.zig");
     } else {
-        try nativeApp(b, "main.zig");
+        try nativeApp(b, "src/main.zig");
     }
 }
