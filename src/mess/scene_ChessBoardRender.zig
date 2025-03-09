@@ -28,50 +28,48 @@ const ChessRenderState = struct {
         self.alloc.free(self.col);
     }
 
+    fn initPos(self: *Self, sz: anytype) void {
+        const x_pos = self.x_pos;
+        @memset(x_pos, 3);
+        for (0..sz.fields) |x| x_pos[x] = @floatFromInt(@mod(x, 8));
+
+        const y_pos = self.y_pos;
+        for (0..sz.yn) |y| {
+            const row_idx = y * sz.yn;
+            const row_value: f32 = @floatFromInt(y);
+            const row_memory = y_pos[row_idx .. row_idx + sz.xn];
+            @memset(row_memory, row_value);
+        }
+        @memset(self.z_pos, 0);
+
+        math.center(self.x_pos);
+        math.center(self.y_pos);
+    }
+
     pub fn init(alloc: Allocator) !Self {
         const xn = 8;
         const yn = xn;
         const fields = 64;
-        std.debug.print("+++ how out of memory? {d}\n", .{fields});
-        const for_real = try alloc.alloc(f32, 12);
-        _ = for_real;
 
-        // std.ArrayListAligned(f32, 4).init(alloc);
-
-        const state = Self{
+        var state = Self{
             .alloc = alloc,
             .x_pos = try alloc.alloc(f32, fields),
             .y_pos = try alloc.alloc(f32, fields),
             .z_pos = try alloc.alloc(f32, fields),
             .col = try alloc.alloc(rl.Color, fields),
         };
-        // populate x data
-        const x_pos = state.x_pos;
-        @memset(x_pos, 3);
-        for (0..fields) |x| x_pos[x] = @floatFromInt(@mod(x, 8));
-        // for (0..xn) |x| x_pos[x] = @floatFromInt(x);
-        // const stencil: []f32 = x_pos[0..xn];
-        // for (1..yn) |y| {
-        //     const x_spot = x_pos[y * xn .. (y + 1) * xn];
-        //     @memcpy(stencil, x_spot);
-        // }
-        // populate y data
-        const y_pos = state.y_pos;
-        for (0..yn) |y| {
-            const y_spot = y_pos[y * yn .. (y + 1) * yn];
-            const y_val: f32 = @floatFromInt(y);
-            std.debug.print("+++ y val is {d}", .{y_val});
-            @memset(y_spot, y_val);
-        }
-        // populate z data
-        @memset(state.z_pos, 0);
-        // populate color data
+
+        state.initPos(.{
+            .fields = fields,
+            .xn = xn,
+            .yn = yn,
+        });
+
         for (0..fields) |i| {
-            state.col[i] = switch (@mod(i, 16)) {
-                inline 0, 2, 4, 6 => rl.Color.white,
-                inline 1, 3, 5, 7 => rl.Color.black,
-                inline 8, 10, 12, 14 => rl.Color.black,
-                inline 9, 11, 13, 15 => rl.Color.white,
+            const row_flip = @mod(@divTrunc(i, 8), 2);
+            state.col[i] = switch (@mod(i + row_flip, 2)) {
+                inline 0 => rl.Color.white,
+                inline 1 => rl.Color.black,
                 else => unreachable,
             };
         }
@@ -80,11 +78,48 @@ const ChessRenderState = struct {
 
     pub fn repr(self: Self) void {
         for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, z, y, c| {
-            const pos = rl.Vector3.init(x, y, z);
+            var pos = rl.Vector3.init(x, y, z);
+            pos = pos.multiply(rl.Vector3.init(8, 8, 8));
             const size = rl.Vector3.init(1, 0.33, 1);
             rl.drawCubeWiresV(pos, size, c);
         }
     }
+
+    pub fn debugInfo(self: *Self) void {
+        const x_mm = math.minMax(self.x_pos);
+        const y_mm = math.minMax(self.y_pos);
+        const z_mm = math.minMax(self.z_pos);
+        std.debug.print("+++ X {d} {d}\n", .{ x_mm[0], x_mm[1] });
+        std.debug.print("+++ Y {d} {d}\n", .{ y_mm[0], y_mm[1] });
+        std.debug.print("+++ Z {d} {d}\n", .{ z_mm[0], z_mm[1] });
+    }
+};
+
+const ChessRepr = struct {
+    render_state: ChessRenderState,
+    allocator: Allocator,
+    // cube_mesh: rl.Mesh,
+
+    pub fn init(alloc: Allocator) !ChessRepr {
+        return ChessRepr{
+            .render_state = try ChessRenderState.init(alloc),
+            .allocator = alloc,
+            // .cube_mesh = rl.genMeshCube(1, 1, 1),
+        };
+    }
+
+    pub fn deinit(self: ChessRepr) void {
+        self.render_state.deinit();
+    }
+
+    pub fn repr(self: *ChessRepr) void {
+        const state = self.render_state;
+        state.repr();
+    }
+};
+
+const World = struct {
+    observers: [2]math.fvec3,
 };
 
 const sphere = @import("sphere.zig");
@@ -98,8 +133,10 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
     const camera_pos = rl.Vector3.init(0, 1, -2);
     camera.position = camera_pos;
 
-    const chess_state = try ChessRenderState.init(alloc);
-    defer chess_state.deinit();
+    var chess_repr = try ChessRepr.init(alloc);
+    defer chess_repr.deinit();
+
+    chess_repr.render_state.debugInfo();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
@@ -114,6 +151,12 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
     };
 
     var total_s: f32 = 0;
+    const model_sky = rl.loadModel("assets/globe.glb");
+    const skysphere = &model_sky.meshes[0];
+    const vert_num: u32 = @intCast(skysphere.vertexCount);
+
+    std.debug.print("+++ vert count is: {d}\n", .{vert_num});
+    // const aBitLeft = rl.Vector3.init(0.1, 0, 0);
     while (exiter.toContinue()) {
         const delta_ms = timeline.tickMs();
         exiter.update(delta_ms);
@@ -148,11 +191,12 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
             const pos_2 = pos.add(rl.Vector3.init(1, 0, 0));
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.black);
 
-            chess_state.repr();
+            chess_repr.repr();
 
             const obs_pos = math.fvec3Rl(main.pos);
             rl.drawSphere(obs_pos, main.size, sColor);
             rl.drawSphere(dynamic.rlPos(), dynamic.size, sColor);
+            rl.drawModel(model_sky, camera.target, 15, rl.Color.blue);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);

@@ -63,6 +63,8 @@ pub fn windowed_program(mem: *const AppMemory) void {
 
     const title: [:0]const u8 = "+++ Runing simulation in a window +++";
     rl.initWindow(screenWidth, screenHeight, title.ptr);
+    // rl.toggleBorderlessWindowed();
+    // rl.setWindowSize(0, 0);
     defer rl.closeWindow();
     ScenesModule.union_fn(mem, &window) catch {
         std.debug.print("error cleaning\n", .{});

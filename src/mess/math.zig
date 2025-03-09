@@ -2,6 +2,7 @@ const rl = @import("raylib");
 pub const iv2 = @Vector(2, i32);
 pub const fv2 = @Vector(2, f32);
 pub const fvec3 = @Vector(3, f32);
+pub const vecf2 = fv2;
 
 pub inline fn fvec3Rl(ve3: fvec3) rl.Vector3 {
     return rl.Vector3.init(ve3[0], ve3[1], ve3[2]);
@@ -41,3 +42,25 @@ pub fn calcProgres(i: u32, n: u32, closed: bool) f32 {
 
 pub const axisX = fv2{ 1, 0 };
 pub const axisY = fv2{ 0, 1 };
+
+pub fn minMax(range: []f32) vecf2 {
+    var max: f32 = -1000000;
+    var min: f32 = 1000000;
+
+    for (range) |val| {
+        max = if (val > max) val else max;
+        min = if (val < min) val else min;
+    }
+    return .{ min, max };
+}
+
+pub fn center(values: []f32) void {
+    const range_mm = minMax(values);
+    const len = range_mm[1] - range_mm[0];
+    const scale = 1 / len;
+    const offset = len / 2;
+
+    for (values) |*value| {
+        value.* = (value.* - offset) * scale;
+    }
+}
