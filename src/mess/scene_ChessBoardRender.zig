@@ -152,6 +152,11 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
 
     var total_s: f32 = 0;
     const model_sky = rl.loadModel("assets/globe.glb");
+    defer rl.unloadModel(model_sky);
+    const basic_shader = rl.loadShader("assets/base.vs", "assets/simple.fs");
+    defer rl.unloadShader(basic_shader);
+
+    model_sky.materials[0].shader = basic_shader;
     const skysphere = &model_sky.meshes[0];
     const vert_num: u32 = @intCast(skysphere.vertexCount);
 
