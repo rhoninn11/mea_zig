@@ -10,99 +10,19 @@ const Timeline = @import("../mods/time.zig").Timeline;
 const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
 const THEME = @import("../mods/core/repr.zig").Theme;
+const player = @import("player.zig");
 
 const Allocator = std.mem.Allocator;
-
-const ChessRenderState = struct {
-    const Self = @This();
-    alloc: Allocator,
-    x_pos: []f32,
-    y_pos: []f32,
-    z_pos: []f32,
-    col: []rl.Color,
-
-    pub fn deinit(self: Self) void {
-        self.alloc.free(self.x_pos);
-        self.alloc.free(self.y_pos);
-        self.alloc.free(self.z_pos);
-        self.alloc.free(self.col);
-    }
-
-    fn initPos(self: *Self, sz: anytype) void {
-        const x_pos = self.x_pos;
-        @memset(x_pos, 3);
-        for (0..sz.fields) |x| x_pos[x] = @floatFromInt(@mod(x, 8));
-
-        const y_pos = self.y_pos;
-        for (0..sz.yn) |y| {
-            const row_idx = y * sz.yn;
-            const row_value: f32 = @floatFromInt(y);
-            const row_memory = y_pos[row_idx .. row_idx + sz.xn];
-            @memset(row_memory, row_value);
-        }
-        @memset(self.z_pos, 0);
-
-        math.center(self.x_pos);
-        math.center(self.y_pos);
-    }
-
-    pub fn init(alloc: Allocator) !Self {
-        const xn = 8;
-        const yn = xn;
-        const fields = 64;
-
-        var state = Self{
-            .alloc = alloc,
-            .x_pos = try alloc.alloc(f32, fields),
-            .y_pos = try alloc.alloc(f32, fields),
-            .z_pos = try alloc.alloc(f32, fields),
-            .col = try alloc.alloc(rl.Color, fields),
-        };
-
-        state.initPos(.{
-            .fields = fields,
-            .xn = xn,
-            .yn = yn,
-        });
-
-        for (0..fields) |i| {
-            const row_flip = @mod(@divTrunc(i, 8), 2);
-            state.col[i] = switch (@mod(i + row_flip, 2)) {
-                inline 0 => rl.Color.white,
-                inline 1 => rl.Color.black,
-                else => unreachable,
-            };
-        }
-        return state;
-    }
-
-    pub fn repr(self: Self) void {
-        for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, z, y, c| {
-            var pos = rl.Vector3.init(x, y, z);
-            pos = pos.multiply(rl.Vector3.init(8, 8, 8));
-            const size = rl.Vector3.init(1, 0.33, 1);
-            rl.drawCubeWiresV(pos, size, c);
-        }
-    }
-
-    pub fn debugInfo(self: *Self) void {
-        const x_mm = math.minMax(self.x_pos);
-        const y_mm = math.minMax(self.y_pos);
-        const z_mm = math.minMax(self.z_pos);
-        std.debug.print("+++ X {d} {d}\n", .{ x_mm[0], x_mm[1] });
-        std.debug.print("+++ Y {d} {d}\n", .{ y_mm[0], y_mm[1] });
-        std.debug.print("+++ Z {d} {d}\n", .{ z_mm[0], z_mm[1] });
-    }
-};
+const chess = @import("chess.zig");
 
 const ChessRepr = struct {
-    render_state: ChessRenderState,
+    render_state: chess.ChessRenderState,
     allocator: Allocator,
     // cube_mesh: rl.Mesh,
 
     pub fn init(alloc: Allocator) !ChessRepr {
         return ChessRepr{
-            .render_state = try ChessRenderState.init(alloc),
+            .render_state = try chess.ChessRenderState.init(alloc),
             .allocator = alloc,
             // .cube_mesh = rl.genMeshCube(1, 1, 1),
         };
@@ -124,15 +44,9 @@ const World = struct {
 
 const sphere = @import("sphere.zig");
 const math = @import("math.zig");
-const view = @import("view.zig");
 
-fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
-    var camera = view.cameraPersp();
-    camera.target = rl.Vector3.init(0, 0, 0);
-    // view = camera.getMatrix();
-    const camera_pos = rl.Vector3.init(0, 1, -2);
-    camera.position = camera_pos;
-
+fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
+    var p1 = player.Player.init();
     var chess_repr = try ChessRepr.init(alloc);
     defer chess_repr.deinit();
 
@@ -166,10 +80,10 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
         const delta_ms = timeline.tickMs();
         exiter.update(delta_ms);
         total_s += delta_ms / 1000;
+        p1.update();
 
-        rl.updateCamera(&camera, rl.CameraMode.camera_third_person);
-
-        main.pos = math.asRelVec3(camera.target);
+        const p_pos = p1.camera.target;
+        main.pos = math.asRelVec3(p_pos);
 
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
@@ -188,7 +102,7 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
         defer on_medium.end();
         rl.clearBackground(THEME[1]);
         {
-            rl.beginMode3D(camera);
+            rl.beginMode3D(p1.camera);
             defer rl.endMode3D();
             const base_size = 0.5;
             const pos = rl.Vector3.init(0, osc * 0.33, 0);
@@ -201,7 +115,7 @@ fn render_model(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, time
             const obs_pos = math.fvec3Rl(main.pos);
             rl.drawSphere(obs_pos, main.size, sColor);
             rl.drawSphere(dynamic.rlPos(), dynamic.size, sColor);
-            rl.drawModel(model_sky, camera.target, 15, rl.Color.blue);
+            rl.drawModel(model_sky, p_pos, 15, rl.Color.blue);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
@@ -218,5 +132,5 @@ pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
     var _exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     _exit.selfReference();
 
-    try render_model(arena, on_medium, &_exit, &tmln);
+    try chessboard_arena(arena, on_medium, &_exit, &tmln);
 }
