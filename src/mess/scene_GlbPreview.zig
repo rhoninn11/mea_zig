@@ -15,10 +15,33 @@ const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
 const THEME = @import("../mods/core/repr.zig").Theme;
 
+fn endLine() void {
+    std.debug.print("\n", .{});
+}
+
+fn modelDebugInfo(model: *rl.Model) void {
+    const mat_num: u32 = @intCast(model.materialCount);
+    const mesh_num: u32 = @intCast(model.meshCount);
+    std.debug.print("+++ info about mesh:\n\tmaterials - {d}\n\tmeshes - {d}\n\n", .{ mat_num, mesh_num });
+
+    std.debug.print("meshes: ", .{});
+    for (0..mesh_num) |i| std.debug.print("{d} ", .{i});
+    endLine();
+    std.debug.print("mats: ", .{});
+    for (0..mat_num) |i| std.debug.print("{d} ", .{i});
+    endLine();
+
+    for (0..mesh_num) |i| {
+        const mesh = model.meshes[i];
+        std.debug.print("mesh({d}) has {d} verts\n", .{ i, mesh.vertexCount });
+    }
+}
+
 fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *Timeline) !void {
     const center = rl.Vector3.init(0, 0, 0);
     var camera = view.cameraPersp();
-    camera.target = center;
+    // camera.target = center;
+    // camera.position = rl.Vector3.init(0, 1, 0);
 
     const main = RenderMedium{ .rlwin = rlwin };
     const tex_size = 256;
@@ -28,12 +51,15 @@ fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *
     const preview_points = RenderMedium{
         .rltex = rl.loadRenderTexture(tex_size, tex_size),
     };
+    defer rl.unloadRenderTexture(preview.rltex);
+    defer rl.unloadRenderTexture(preview_points.rltex);
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
 
     const glbs = [_][:0]const u8{
         "assets/hand.glb",
+        "/home/leszek/dev/mea_dev/sub/mea_zig/fs/elephant.glb", //68Mvert? nah
         // "assets/grid.glb",
         // "/home/leszek/dev/mea_zig/fs/malpa.glb",
         // "/home/leszek/dev/mea_zig/fs/malpa_off.glb",
@@ -68,18 +94,22 @@ fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *
         cOffsetV[i] = offset.scale(scale);
         scaleV[i] = scale;
     }
-    const sinLut = circleLut(glbs.len);
+    defer for (&modelsV) |*model| model.unload();
 
-    defer for (modelsV) |model| model.unload();
+    for (&modelsV) |*model| modelDebugInfo(model);
 
-    const model = rl.loadModel(glbs[0]);
-    defer model.unload();
+    const sinLut = circleLut(glbs.len, 1);
 
     var total_s: f32 = 0;
-    while (exiter.toContinue()) {
+    var to_run = true;
+    const leave_after_s = 100;
+    while (exiter.toContinue() and to_run) {
         const delta_ms = timeline.tickMs();
         exiter.update(delta_ms);
         total_s += delta_ms / 1000;
+        if (total_s > leave_after_s) {
+            to_run = false;
+        }
 
         const osc: f32 = std.math.sin(total_s);
         // const osc_2: f32 = std.math.cos(total_s * 2);
@@ -136,11 +166,16 @@ fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *
 
         exiter.draw();
     }
+
+    const image = rl.loadImageFromTexture(preview.rltex.texture);
+    defer image.unload();
+
+    _ = rl.exportImage(image, "fs/headles.png");
 }
 
 const spatial = @import("../spatial.zig");
 
-fn circleLut(comptime len: u32) [len]rl.Vector3 {
+fn circleLut(comptime len: u32, size: f32) [len]rl.Vector3 {
     const progress = spatial.LinStage(len, .NoLast);
     const circle_size = 5;
     var lut: [len]rl.Vector3 = undefined;
@@ -148,7 +183,7 @@ fn circleLut(comptime len: u32) [len]rl.Vector3 {
     for (progress, 0..) |val, i| {
         const x = std.math.cos(val * std.math.pi * 2) * circle_size;
         const y = std.math.sin(val * std.math.pi * 2) * circle_size;
-        lut[i] = rl.Vector3.init(x, 0, y);
+        lut[i] = rl.Vector3.init(x, 0, y).scale(size);
     }
     return lut;
 }
