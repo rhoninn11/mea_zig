@@ -5,6 +5,7 @@ const cModule = @cImport({
 });
 
 const zigModule = @import("testnaemspace.zig");
+const generatedProtobuffer = @import("../../gen/comfy.pb.zig");
 
 // -----
 fn summaryLen(about: type) u64 {
@@ -17,12 +18,10 @@ fn printEnum(writer: anytype, e: Kind) void {
     const enumInfo = e.lower_type.Enum;
     const f_n = enumInfo.fields.len;
     // const d_n = enumInfo.decls.len;
+    writer.print(" (f {d})\n", .{f_n}) catch unreachable;
 
-    writer.print("\t{d} - fields\n", .{f_n}) catch unreachable;
-    for (enumInfo.fields) |field| {
-        writer.print(" - {s: <10} - {d}\n", .{ field.name, field.value }) catch unreachable;
-    }
-    writer.print("\n", .{}) catch unreachable;
+    for (enumInfo.fields) |field|
+        writer.print(" - {d} - {s: <10}", .{ field.value, field.name }) catch unreachable;
 }
 
 test "runtime enum field names" {
@@ -41,16 +40,16 @@ const Type = std.builtin.Type;
 
 const Kind = struct {
     base_type: type,
-    base_name: []const u8,
     lower_type: Type,
+    base_name: []const u8,
     lower_name: []const u8,
 
-    fn init(about: type) Kind {
+    fn of(about: type) Kind {
         const type_info = @typeInfo(about);
         return Kind{
             .base_type = about,
-            .base_name = @typeName(about),
             .lower_type = type_info,
+            .base_name = @typeName(about),
             .lower_name = @tagName(type_info),
         };
     }
@@ -59,31 +58,28 @@ const Kind = struct {
         const field_value = @field(me.base_type, name);
         const field_type = @TypeOf(field_value);
 
+        // Int and some other will cause compilation errorerror
         const clean_type: type = switch (@typeInfo(field_type)) {
             .Fn => field_type,
             else => field_value,
         };
 
-        return Kind.init(clean_type);
+        return Kind.of(clean_type);
     }
 };
 
 // print declaration of struct to writer
-fn printDeclaration(writer: anytype, comptime of: type) void {
-    var top_kind = Kind.init(of);
+fn printDeclaration(writer: anytype, comptime object: type) void {
+    var top_kind = Kind.of(object);
     const as_struct = top_kind.lower_type.Struct;
-    const decle_num = as_struct.decls.len;
-
-    try writer.print("\t{d} declarations:\n", .{decle_num});
 
     for (as_struct.decls) |decl| {
         const member = top_kind.field(decl.name);
-        writer.print("{s: <16} + {s: >7} -  {s}\n", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
-        if (member.lower_type == .Enum) {
-            printEnum(writer, member);
-        }
-        if (member.lower_type == .Union) {
-            writer.print("+++\n", .{}) catch unreachable;
+        writer.print("\n{s: <16} | {s: >7} |  {s}", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
+        switch (member.lower_type) {
+            // .Enum => printEnum(writer, member),
+            .Union => writer.print("+++\n", .{}) catch unreachable,
+            else => {},
         }
     }
 }
@@ -93,8 +89,11 @@ fn writeSummary(writer: anytype, about: type) void {
     const as_struct = @typeInfo(about).Struct;
     const f_n = as_struct.fields.len;
 
-    writer.print("+++ looking at - {s}:\n", .{name}) catch unreachable;
-    writer.print("\t{d} fields:\n", .{f_n}) catch unreachable;
+    const fld_num: u32 = as_struct.fields.len;
+    const decl_num: u32 = as_struct.decls.len;
+
+    writer.print("+++ looking at:\n\t{s} (f {d}) (d {d})\n", .{ name, fld_num, decl_num }) catch unreachable;
+
     for (as_struct.fields) |field| {
         writer.print("\t{s},", .{field.name}) catch unreachable;
     }
@@ -132,4 +131,5 @@ pub fn comptimeExperiment() void {
     // examineType(cModule);
     // examineType(zigModule);
     examineType(zigModule);
+    examineType(generatedProtobuffer);
 }
