@@ -12,7 +12,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_unified;
+    const selector: examples = .using_comptime;
     const core = @import("mess/core.zig");
     switch (selector) {
         .rl_inertia => {

@@ -10,28 +10,27 @@ var scope_optimize: ?std.builtin.OptimizeMode = null;
 
 var scratchpad: [1024]u8 = undefined;
 
-fn initScopeOptions(b: *std.Build) void {
+fn initScope(b: *std.Build) void {
     scope_build = b;
     scope_target = b.standardTargetOptions(.{});
     scope_optimize = b.standardOptimizeOption(.{});
 }
 
-fn exe_test_tupla(root_file: []const u8) [2]*Compile {
-    var tupla: [2]*Compile = undefined;
+fn appTestCompileTupla(root_file: []const u8) [2]*Compile {
     const b = scope_build.?;
-    tupla[0] = b.addExecutable(.{
-        .name = "app",
-        .root_source_file = b.path(root_file),
-        .target = scope_target.?,
-        .optimize = scope_optimize.?,
-    });
-
-    tupla[1] = b.addTest(.{
-        .root_source_file = b.path(root_file),
-        .target = scope_target.?,
-        .optimize = scope_optimize.?,
-    });
-    return tupla;
+    return .{
+        b.addExecutable(.{
+            .name = "app",
+            .root_source_file = b.path(root_file),
+            .target = scope_target.?,
+            .optimize = scope_optimize.?,
+        }),
+        b.addTest(.{
+            .root_source_file = b.path(root_file),
+            .target = scope_target.?,
+            .optimize = scope_optimize.?,
+        }),
+    };
 }
 
 fn addDependency(b: *std.Build, compileUnit: *Compile, name: []const u8) *Dependency {
@@ -56,7 +55,7 @@ pub fn addRaylib(b: *std.Build, exe: *Compile) void {
         .opengl_version = gl_ver,
     });
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
-    raylib_artifact.defineCMacro("SUPPORT_MESH_GENERATION", null);
+    raylib_artifact.defineCMacro("SUPPORT_MESH_GENERATION", null); //but it still dont work
 
     if (is_wasm) {
         exe.entry = .disabled;
@@ -92,7 +91,7 @@ pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
     const test_step = b.step("test", "+++ run unit tests");
     const cmd_step = b.step("cmd", "+++ run system command");
 
-    const compiles = exe_test_tupla(main_file);
+    const compiles = appTestCompileTupla(main_file);
     for (compiles) |c| {
         c.addIncludePath(b.path("src/explore/precompile/include/"));
         addRaylib(b, c);
@@ -156,7 +155,7 @@ fn wasmLib(b: *std.Build, main_file: []const u8) !void {
 }
 
 pub fn build(b: *std.Build) !void {
-    initScopeOptions(b);
+    initScope(b);
     const vanila_wasm = b.option(bool, "wasm", "+++ build alternative program") orelse false;
 
     if (vanila_wasm) {

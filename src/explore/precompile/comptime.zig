@@ -44,37 +44,57 @@ const Kind = struct {
     base_name: []const u8,
     lower_name: []const u8,
 
-    fn of(about: type) Kind {
-        const type_info = @typeInfo(about);
+    fn of(basic: type) Kind {
+        const type_info = @typeInfo(basic);
         return Kind{
-            .base_type = about,
+            .base_type = basic,
             .lower_type = type_info,
-            .base_name = @typeName(about),
+            .base_name = @typeName(basic),
             .lower_name = @tagName(type_info),
         };
     }
 
-    fn field(me: Kind, name: []const u8) Kind {
-        const field_value = @field(me.base_type, name);
+    fn fieldOf(basic: type, field_name: []const u8) ?Kind {
+        const field_value = @field(basic, field_name);
         const field_type = @TypeOf(field_value);
 
         // Int and some other will cause compilation errorerror
+        // @compileLog(field_type);
+        // @compileLog(name)
         const clean_type: type = switch (@typeInfo(field_type)) {
             .Fn => field_type,
+            .Int => field_type,
+            .Pointer => field_type,
             else => field_value,
+            .Optional => {
+                return null;
+            },
         };
 
         return Kind.of(clean_type);
     }
 };
 
+fn filterNamePass(name: []const u8, exclude_starts: []const []const u8) ?void {
+    for (exclude_starts) |needle|
+        if (std.mem.startsWith(u8, name, needle)) return null;
+}
+
+fn printType(writer: anytype) void {
+    const u = @typeInfo(std.builtin.Type).Union;
+    writer.print("f{d} d{d}\n", .{ u.fields.len, u.decls.len }) catch unreachable;
+}
+
 // print declaration of struct to writer
-fn printDeclaration(writer: anytype, comptime object: type) void {
-    var top_kind = Kind.of(object);
+fn printDeclaration(writer: anytype, comptime basic: type) void {
+    const top_kind = Kind.of(basic);
     const as_struct = top_kind.lower_type.Struct;
 
+    const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
     for (as_struct.decls) |decl| {
-        const member = top_kind.field(decl.name);
+        filterNamePass(decl.name, prefs) orelse continue;
+        const member = Kind.fieldOf(basic, decl.name) orelse continue;
+
         writer.print("\n{s: <16} | {s: >7} |  {s}", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
         switch (member.lower_type) {
             // .Enum => printEnum(writer, member),
@@ -82,6 +102,38 @@ fn printDeclaration(writer: anytype, comptime object: type) void {
             else => {},
         }
     }
+}
+
+fn printDeclSummary(writer: anytype, comptime basic: type) void {
+    const top_kind = Kind.of(basic);
+    const as_struct = top_kind.lower_type.Struct;
+    var c_enums = 0;
+
+    const tu = @typeInfo(std.builtin.Type).Union;
+    const bin_num = tu.fields.len;
+    var bins: [bin_num]u32 = .{0} ** bin_num;
+    var counted: u32 = 0;
+
+    const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
+    for (as_struct.decls) |decl| {
+        filterNamePass(decl.name, prefs) orelse continue;
+        const member = Kind.fieldOf(basic, decl.name) orelse continue;
+
+        filterNamePass(decl.name, &.{"enum_"}) orelse {
+            c_enums += 1;
+        };
+
+        const bin_id: u32 = @intFromEnum(std.meta.activeTag(member.lower_type));
+        bins[bin_id] += 1;
+        counted += 1;
+    }
+    writer.print("+++ valid decls {d}/{d}\n", .{ counted, bin_num }) catch unreachable;
+    for (tu.fields, 0..) |field, i| {
+        const curr_bin = bins[i];
+        if (curr_bin > 0)
+            writer.print("{s} - {d}\n", .{ field.name, curr_bin }) catch unreachable;
+    }
+    writer.print("c_enums {d}\n", .{c_enums}) catch unreachable;
 }
 
 fn writeSummary(writer: anytype, about: type) void {
@@ -99,7 +151,8 @@ fn writeSummary(writer: anytype, about: type) void {
     }
     if (f_n != 0) writer.print("\n", .{}) catch unreachable;
 
-    printDeclaration(writer, about);
+    printDeclSummary(writer, about);
+    // printDeclaration(writer, about);
     writer.print("\n", .{}) catch unreachable;
 }
 
