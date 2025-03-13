@@ -88,43 +88,35 @@ pub fn generateProto(b: *std.Build, dep: *Dependency) void {
 // for next tryies with emscripten
 // cmd: zig build -Dtarget=wasm32-emscripten --sysroot /opt/emsdk/upstream/emscripten
 pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
+    const run_step = b.step("run", "+++ run cli app after build");
+    const test_step = b.step("test", "+++ run unit tests");
+    const cmd_step = b.step("cmd", "+++ run system command");
+
     const compiles = exe_test_tupla(main_file);
     for (compiles) |c| {
         c.addIncludePath(b.path("src/explore/precompile/include/"));
         addRaylib(b, c);
     }
 
-    const exe = compiles[0];
-    // blu.addGltfModule(exe);
-    _ = addDependency(b, exe, "zigimg");
-    const pb = addDependency(b, exe, "protobuf");
+    const main_app = compiles[0];
+    _ = addDependency(b, main_app, "zigimg");
+    const pb = addDependency(b, main_app, "protobuf");
     generateProto(b, pb);
-    b.installArtifact(exe);
+    b.installArtifact(main_app);
 
-    const run_exe = b.addRunArtifact(exe);
-    const run_step = b.step("run", "+++ run cli app after build");
-    run_step.dependOn(&run_exe.step);
+    const main_app_run = b.addRunArtifact(main_app);
+    run_step.dependOn(&main_app_run.step);
 
     const tests = compiles[1];
-    const test_exe = b.addRunArtifact(tests);
-    const test_step = b.step("test", "+++ run unit tests");
-    test_step.dependOn(&test_exe.step);
+    test_step.dependOn(&b.addRunArtifact(tests).step);
+    // test_step.
 
+    // all args go to first command, pipe not possible here
     const sys_cmd = b.addSystemCommand(&.{
         "echo",
         "+++ output content sample +++",
-        ">",
-        "zig-out/cmd_out.txt",
     });
-    const sys_cmd_2 = b.addSystemCommand(&.{"echo"});
-    sys_cmd_2.addArgs(&.{
-        "+++ output content sample +++",
-        ">",
-        "zig-out/cmd_out.txt",
-    });
-    const cmd_step = b.step("cmd", "+++ run system command");
-    cmd_step.dependOn(&sys_cmd_2.step);
-    _ = sys_cmd;
+    cmd_step.dependOn(&sys_cmd.step);
 }
 
 // zig build -Dwasm --sysroot /opt/emsdk/upstream/emscripten
