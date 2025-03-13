@@ -16,15 +16,16 @@ const Allocator = std.mem.Allocator;
 const chess = @import("chess.zig");
 
 const ChessRepr = struct {
-    render_state: chess.ChessRenderState,
+    const ChessType = chess.ChessRenderState(8, 8);
+    render_state: ChessType,
     allocator: Allocator,
-    // cube_mesh: rl.Mesh,
+    matrices: []rl.Matrix,
 
     pub fn init(alloc: Allocator) !ChessRepr {
         return ChessRepr{
-            .render_state = try chess.ChessRenderState.init(alloc),
+            .render_state = try ChessType.init(alloc),
+            .matrices = try alloc.alloc(rl.Matrix, ChessType.fields),
             .allocator = alloc,
-            // .cube_mesh = rl.genMeshCube(1, 1, 1),
         };
     }
 
@@ -32,7 +33,14 @@ const ChessRepr = struct {
         self.render_state.deinit();
     }
 
+    // TODO: precalulate matrices for instanced rendering of fields
+    pub fn precalulate(self: *ChessRepr, scale: rl.Vector3) void {
+        _ = self;
+        _ = scale;
+    }
+
     pub fn repr(self: *ChessRepr) void {
+        // i would like to render chessboard with instanced rendering
         const state = self.render_state;
         state.repr();
     }
@@ -55,10 +63,6 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
 
-    var main = sphere.Sphere{
-        .pos = @splat(0),
-        .size = 0.3,
-    };
     var dynamic = sphere.Sphere{
         .pos = @splat(0),
         .size = 0.1,
@@ -82,9 +86,6 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
         total_s += delta_ms / 1000;
         p1.update();
 
-        const p_pos = p1.camera.target;
-        main.pos = math.asRelVec3(p_pos);
-
         const osc: f32 = std.math.sin(total_s);
         const osc_2: f32 = std.math.cos(total_s * 2);
         const osc_3: f32 = std.math.cos(total_s * 0.5);
@@ -92,7 +93,7 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
 
         dynamic.pos[0] = 3 * osc_3;
 
-        const sColor = switch (sphere.tachin(main, dynamic)) {
+        const sColor = switch (sphere.sphereTachin(p1.sphere, dynamic)) {
             .far => rl.Color.orange,
             .touching => rl.Color.purple,
             else => rl.Color.pink,
@@ -112,10 +113,10 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
 
             chess_repr.repr();
 
-            const obs_pos = math.fvec3Rl(main.pos);
-            rl.drawSphere(obs_pos, main.size, sColor);
-            rl.drawSphere(dynamic.rlPos(), dynamic.size, sColor);
-            rl.drawModel(model_sky, p_pos, 15, rl.Color.blue);
+            const dyn_pos = math.fvec3Rl(dynamic.pos);
+            p1.drawSphere(sColor);
+            rl.drawSphere(dyn_pos, dynamic.size, sColor);
+            rl.drawModel(model_sky, p1.pos, 15, rl.Color.blue);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);

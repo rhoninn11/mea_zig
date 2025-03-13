@@ -1,7 +1,7 @@
 const std = @import("std");
 const meta = std.meta;
 const cModule = @cImport({
-    @cInclude("some_c.h");
+    @cInclude("webgpu.h");
 });
 
 const zigModule = @import("testnaemspace.zig");
@@ -128,8 +128,7 @@ pub fn examineType(comptime module: type) void {
 }
 
 pub fn comptimeExperiment() void {
-    // examineType(cModule);
+    examineType(cModule);
     // examineType(zigModule);
-    examineType(zigModule);
-    examineType(generatedProtobuffer);
+    // examineType(generatedProtobuffer);
 }
