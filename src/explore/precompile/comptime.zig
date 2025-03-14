@@ -75,7 +75,7 @@ const Kind = struct {
     }
 };
 
-fn filterNamePass(name: []const u8, exclude_starts: []const []const u8) ?void {
+fn prefixFilterPass(name: []const u8, exclude_starts: []const []const u8) ?void {
     for (exclude_starts) |needle|
         if (std.mem.startsWith(u8, name, needle)) return null;
 }
@@ -92,7 +92,7 @@ fn printDeclaration(writer: anytype, comptime basic: type) void {
 
     const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
     for (as_struct.decls) |decl| {
-        filterNamePass(decl.name, prefs) orelse continue;
+        prefixFilterPass(decl.name, prefs) orelse continue;
         const member = Kind.fieldOf(basic, decl.name) orelse continue;
 
         writer.print("\n{s: <16} | {s: >7} |  {s}", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
@@ -104,10 +104,40 @@ fn printDeclaration(writer: anytype, comptime basic: type) void {
     }
 }
 
+fn isCEnumName(name: []const u8) bool {
+    return std.mem.startsWith(u8, name, "enum_");
+}
+
+fn countDeclWithPrefix(s: std.builtin.Type.Struct, prefix: []const u8) u32 {
+    return comptime blk: {
+        var count: u32 = 0;
+        for (s.decls) |decl| {
+            prefixFilterPass(decl.name, &.{prefix}) orelse {
+                count += 1;
+            };
+        }
+        break :blk count;
+    };
+}
+fn countE(s: std.builtin.Type.Struct) u32 {
+    return countDeclWithPrefix(s, "enum_");
+}
+
+fn cEnumNames(s: std.builtin.Type.Struct) [countE(s)][]const u8 {
+    var names: [countE(s)][]const u8 = undefined;
+    var idx: u32 = 0;
+    for (s.decls) |decl| {
+        if (isCEnumName(decl.name)) {
+            names[idx] = decl.name;
+            idx += 1;
+        }
+    }
+    return names;
+}
+
 fn printDeclSummary(writer: anytype, comptime basic: type) void {
     const top_kind = Kind.of(basic);
     const as_struct = top_kind.lower_type.Struct;
-    var c_enums = 0;
 
     const tu = @typeInfo(std.builtin.Type).Union;
     const bin_num = tu.fields.len;
@@ -116,12 +146,8 @@ fn printDeclSummary(writer: anytype, comptime basic: type) void {
 
     const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
     for (as_struct.decls) |decl| {
-        filterNamePass(decl.name, prefs) orelse continue;
+        prefixFilterPass(decl.name, prefs) orelse continue;
         const member = Kind.fieldOf(basic, decl.name) orelse continue;
-
-        filterNamePass(decl.name, &.{"enum_"}) orelse {
-            c_enums += 1;
-        };
 
         const bin_id: u32 = @intFromEnum(std.meta.activeTag(member.lower_type));
         bins[bin_id] += 1;
@@ -133,7 +159,11 @@ fn printDeclSummary(writer: anytype, comptime basic: type) void {
         if (curr_bin > 0)
             writer.print("{s} - {d}\n", .{ field.name, curr_bin }) catch unreachable;
     }
-    writer.print("c_enums {d}\n", .{c_enums}) catch unreachable;
+    const a = cEnumNames(as_struct);
+    writer.print("c_enums {d}\n", .{a.len}) catch unreachable;
+    for (a) |name| {
+        writer.print("- {s}\n", .{name}) catch unreachable;
+    }
 }
 
 fn writeSummary(writer: anytype, about: type) void {
