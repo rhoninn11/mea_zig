@@ -20,29 +20,41 @@ const ChessRepr = struct {
     render_state: ChessType,
     allocator: Allocator,
     matrices: []rl.Matrix,
+    material: rl.Material,
 
     pub fn init(alloc: Allocator) !ChessRepr {
         return ChessRepr{
             .render_state = try ChessType.init(alloc),
             .matrices = try alloc.alloc(rl.Matrix, ChessType.fields),
             .allocator = alloc,
+            .material = rl.loadMaterialDefault(),
         };
     }
 
     pub fn deinit(self: ChessRepr) void {
         self.render_state.deinit();
+        self.allocator.free(self.matrices);
+        rl.unloadMaterial(self.material);
     }
 
     // TODO: precalulate matrices for instanced rendering of fields
     pub fn precalulate(self: *ChessRepr, scale: rl.Vector3) void {
-        _ = self;
         _ = scale;
+        const x_v = self.render_state.x_pos;
+        const y_v = self.render_state.y_pos;
+        const z_v = self.render_state.z_pos;
+        for (x_v, y_v, z_v, 0..) |x, y, z, i| {
+            const trans = rl.Matrix.translate(x, y, z);
+            self.matrices[i] = trans;
+        }
     }
 
     pub fn repr(self: *ChessRepr) void {
         // i would like to render chessboard with instanced rendering
         const state = self.render_state;
         state.repr();
+
+        // rl.drawMeshInstanced(_not_implemented, self.material, self.matrices);
     }
 };
 
