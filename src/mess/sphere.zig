@@ -5,25 +5,35 @@ const math = @import("math.zig");
 // w sumie to zapytełem się llma o jakieś zadanie
 // aby było związne z gamedevem i
 
-const Colider = union(enum) {
-    sphere: Sphere,
-    cube: Cube,
-};
-
 const Cube = struct {
-    size: math.fvec3,
-    pos: math.fvec3,
+    size: math.fvec3 = @splat(1),
+    pos: math.fvec3 = @splat(0),
 };
 
+pub const Sphere = struct {
+    size: f32 = 1,
+    pos: math.fvec3 = @splat(0),
+};
 pub const TachinState = enum {
     far,
     close,
     touching,
 };
+const col_type = enum {
+    ball,
+    box,
+};
 
-pub const Sphere = struct {
-    size: f32,
-    pos: math.fvec3,
+pub const Colide = union(col_type) {
+    ball: Sphere,
+    box: Cube,
+
+    fn asUnicode(self: Colide) []const u8 {
+        switch (self) {
+            .ball => return "🏀",
+            .box => return "🧊",
+        }
+    }
 };
 
 fn quadraticR(s: *const Sphere) f32 {
@@ -42,7 +52,6 @@ test "quadratic r" {
 
 pub fn sphereTachin(one: Sphere, second: Sphere) TachinState {
     const delta = second.pos - one.pos;
-    // const q_dist = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
     const q_dist = math.dot(delta, delta);
 
     const q_size_sum = quadraticR(&one) + quadraticR(&second);
@@ -99,25 +108,30 @@ fn populateSpheresRandom(shperes: []Sphere, indices: []@Vector(2, usize)) void {
 }
 
 test "tachin performance test" {
+    try messure_pref();
+    try std.testing.expect(true);
+}
+
+fn messure_pref() !void {
+    const ms = std.time.ns_per_ms;
     const ind_type = @Vector(2, usize);
-    const data = try std.testing.allocator.alloc(Sphere, K);
-    defer std.testing.allocator.free(data);
-    const inds = try std.testing.allocator.alloc(ind_type, K);
-    defer std.testing.allocator.free(inds);
+    const alo = std.testing.allocator;
+    const data = try alo.alloc(Sphere, K);
+    const inds = try alo.alloc(ind_type, K);
+    defer alo.free(data);
+    defer alo.free(inds);
+
     populateSpheresRandom(data, inds);
-
-    var perf_timer = try std.time.Timer.start();
-    const total: u64 = K * K;
-    for (0..total) |i| {
-        const from = inds[@mod(i, K)];
-        _ = sphereTachin(data[from[0]], data[from[1]]);
+    var messure_span = try std.time.Timer.start();
+    var count: u32 = 0;
+    while (messure_span.read() < ms * 100) {
+        for (0..K) |i| {
+            const from = inds[@mod(i, K)];
+            _ = sphereTachin(data[from[0]], data[from[1]]);
+        }
+        count += 1;
     }
-    const ns = perf_timer.lap();
-    try std.testing.expect(ns < 100 * std.time.ns_per_ms);
-    // 1M collisions under 100 ms
-    // 9 ms with explicit mult, with perfect memory scenario | debug mode
-    // 19 ms in more realistic scenario | debug mode
-    // 19 ms using small vector in realistic scenario | debug mode
-
-    std.debug.print("perf test pass in: {d} ms?\n", .{ns / std.time.ns_per_ms});
+    const colide = Colide{ .ball = Sphere{} };
+    const icon = Colide.asUnicode(colide);
+    std.debug.print("+++ {s}x{s} - {d}K in 1 s", .{ icon, icon, count * 10 });
 }

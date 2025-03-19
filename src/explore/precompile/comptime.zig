@@ -215,3 +215,18 @@ pub fn comptimeExperiment() void {
     // examineType(zigModule);
     // examineType(generatedProtobuffer);
 }
+
+const fs = std.fs;
+const _test = std.testing;
+test "can i use file structure in comptime?" {
+    const cwd = fs.cwd();
+    cwd.access("build.zig", .{ .mode = .read_only }) catch {
+        try _test.expect(false);
+    };
+
+    cwd.access("main.zig", .{ .mode = .read_only }) catch {
+        try _test.expect(true);
+    };
+
+    // here we want to test is file structure data is accesible at comptime
+}
