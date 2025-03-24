@@ -1,26 +1,24 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-const math = @import("mods/core/math.zig");
-const repr = @import("mods/core/repr.zig");
+const math = @import("math.zig");
+const core = @import("core.zig");
+const repr = @import("../mods/core/repr.zig");
 
-const input = @import("mods/input.zig");
-const spt = @import("spatial.zig");
+const input = @import("../mods/input.zig");
+const spt = @import("../spatial.zig");
 const LinePreset = spt.LinePreset;
 
-const Timeline = @import("mods/time.zig").Timeline;
+const Timeline = @import("../mods/time.zig").Timeline;
 
-const Circle = @import("mods/circle.zig").Circle;
-const Osc = @import("mods/osc.zig").Osc;
+const Circle = @import("../mods/circle.zig").Circle;
+const Osc = @import("../mods/osc.zig").Osc;
 
-const THEME = @import("mods/circle.zig").THEME;
+const THEME = repr.Theme;
 const Allocator = std.mem.Allocator;
 
 const Signal = input.Signal;
 const KbKey = input.KbKey;
-
-const vi2 = math.iv2;
-const vf2 = math.fv2;
 
 const LinSpace = spt.DynLinSpace;
 const SpaceSim = struct {
@@ -81,35 +79,29 @@ fn log_slice_info(slice: []f32) void {
     }
 }
 
-const phys = @import("mods/phys.zig");
+const phys = @import("../mods/phys.zig");
 const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
-const Exiter = @import("mods/elements.zig").Exiter;
+const Exiter = @import("../mods/elements.zig").Exiter;
 
-const AppMemory = @import("mess/core.zig").AppMemory;
+const AppMemory = core.AppMemory;
 
+pub fn launchAppWindow(aloc: *const AppMemory, win: *core.RLWindow) !void {
+    return _simulation(aloc.arena, win);
+}
 pub fn program(aloc: *const AppMemory) void {
     _ = _simulation(aloc) catch {
         std.debug.print("error cleaning\n", .{});
     };
 }
 
-fn _simulation(aloc: *const AppMemory) !void {
-    const arena = aloc.arena;
+fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
+    _ = alloc;
 
-    _ = arena;
-    const screenWidth = 800;
-    const screenHeight = 450;
-
-    const tile: [:0]const u8 = "raylib-zig [core] example - basic window";
-    rl.initWindow(screenWidth, screenHeight, tile.ptr);
-    defer rl.closeWindow();
-
-    const corner = math.fv2{ screenWidth, 0 };
-    var exit = Exiter.spawn(corner, rl.KeyboardKey.key_escape);
+    var exit = Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
     exit.selfReference();
 
-    var tmln = try Timeline.init();
+    var timeline = try Timeline.init();
     // rl.setTargetFPS(59);
 
     const letters = "qwertyuiopasdfghjklzxcvbnm";
@@ -128,13 +120,10 @@ fn _simulation(aloc: *const AppMemory) !void {
 
     var osc_arr = Osc.createN(m);
 
-    const spot_a: vi2 = @splat(100);
-    const spot_b: vi2 = vi2{ 700, 100 };
-
     // można by zaplanować ograniczoną ilość takich segmentów
     var lin_spc = spt.DynLinSpace{
-        .a = spot_a,
-        .b = spot_b,
+        .a = @splat(100),
+        .b = .{ 700, 100 },
     };
 
     var spread = spt.LinStage(m, LinePreset.NoTip);
@@ -153,7 +142,7 @@ fn _simulation(aloc: *const AppMemory) !void {
 
     var inertia_start = Iner.spawn(lin_spc.a);
     var inertia_end = Iner.spawn(lin_spc.b);
-    var pointer_inert = Iner.spawn(vf2{ 0, 0 });
+    var pointer_inert = Iner.spawn(.{ 0, 0 });
 
     var phx = PhysInprint{};
     phx.reecalc();
@@ -174,7 +163,8 @@ fn _simulation(aloc: *const AppMemory) !void {
     var sldr = Slider{ .max = 1 };
     while (exit.toContinue()) {
         // exit_key.check_input();
-        const delta_ms = try tmln.tickMs();
+        const delta_ms = timeline.tickMs();
+
         life_time_ms += @floatCast(delta_ms);
 
         const mouse_pose = input.sample_mouse();

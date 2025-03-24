@@ -8,6 +8,7 @@ pub inline fn dot(a: fvec3, b: fvec3) f32 {
 }
 
 pub const fvec2 = fv2;
+pub const ivec2 = iv2;
 
 pub inline fn fvec3Rl(ve3: fvec3) rl.Vector3 {
     return rl.Vector3.init(ve3[0], ve3[1], ve3[2]);

@@ -59,20 +59,6 @@ fn render_model(alloc: Allocator, rlwin: *RLWindow, exiter: *Exiter, timeline: *
 
     const glbs = [_][:0]const u8{
         "assets/hand.glb",
-        "/home/leszek/dev/mea_dev/sub/mea_zig/fs/elephant.glb", //68Mvert? nah
-        // "assets/grid.glb",
-        // "/home/leszek/dev/mea_zig/fs/malpa.glb",
-        // "/home/leszek/dev/mea_zig/fs/malpa_off.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_001.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_002.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_003.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_004.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_005.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_006.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_007.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_008.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/model_009.glb",
-        // "/home/leszek/dev/mea_zig/fs/glbs/tride/models/untitled.glb",
     };
 
     const space_reference = rl.loadModel("assets/grid.glb");

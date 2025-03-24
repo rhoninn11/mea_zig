@@ -8,9 +8,7 @@ pub const AppMemory = struct {
     arena: Allocator,
 };
 
-const InternalMain = *const fn (memory: *const AppMemory) void;
-
-pub fn DeployInMemory(program: InternalMain) void {
+pub fn DeployInMemory() void {
     var fmt_gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var obj_gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var obj_arena = std.heap.ArenaAllocator.init(obj_gpa.allocator());
@@ -25,14 +23,31 @@ pub fn DeployInMemory(program: InternalMain) void {
         .arena = obj_arena.allocator(),
     };
 
-    program(&mm);
+    var window = RLWindow.init();
+    defer rl.closeWindow();
+
+    ScenesModule.union_fn(&mm, &window) catch {
+        std.debug.print("error cleaning\n", .{});
+    };
 }
 
 pub const RLWindow = struct {
     corner: math.fv2,
     size: math.fv2,
-};
 
+    pub fn init() RLWindow {
+        const screenWidth = 1600;
+        const screenHeight = 900;
+        const window = RLWindow{
+            .size = .{ screenWidth, screenWidth },
+            .corner = .{ screenWidth, 0 },
+        };
+
+        const title: [:0]const u8 = "+++ Runing simulation in a window +++";
+        rl.initWindow(screenWidth, screenHeight, title.ptr);
+        return window;
+    }
+};
 pub const RenderMedium = union(enum) {
     rlwin: *RLWindow,
     rltex: rl.RenderTexture,
@@ -53,65 +68,37 @@ pub const RenderMedium = union(enum) {
     }
 };
 
-pub fn windowed_program(mem: *const AppMemory) void {
-    const screenWidth = 1600;
-    const screenHeight = 900;
-    var window = RLWindow{
-        .size = .{ screenWidth, screenWidth },
-        .corner = .{ screenWidth, 0 },
-    };
-
-    const title: [:0]const u8 = "+++ Runing simulation in a window +++";
-    rl.initWindow(screenWidth, screenHeight, title.ptr);
-    // rl.toggleBorderlessWindowed();
-    // rl.setWindowSize(0, 0);
-    defer rl.closeWindow();
-    ScenesModule.union_fn(mem, &window) catch {
-        std.debug.print("error cleaning\n", .{});
-    };
-}
-
-const fs = @import("../explore/filesystem.zig");
-
-const geo = @import("scene_GlbToImg.zig");
-const scene = @import("simpleScene2D.zig");
-const ChessBoard = @import("scene_ChessBoardRender.zig");
-const GlbPreview = @import("scene_GlbPreview.zig");
-
-const Scenes = enum {
-    chess_board,
-    glb_preview,
-    simple_2d_scene,
-    glb_to_image,
-};
-
-// Would be nice if possible of course to call each scene fn with switch
+const Scenes = enum { chess_board, simple_2d_scene, with_glbs, springs };
+// Would be nice if scenes ware discoverables
 const ScenesModule = union(Scenes) {
+    const fs = @import("../explore/filesystem.zig");
+    const chess_board = @import("scene_ChessBoardRender.zig");
+    const that_was_nawig_hmm = @import("scene_Simple2D.zig");
+    const scene_with_glbs = @import("scene_GlbPreview.zig");
+    const scene_with_springs = @import("scene_SpringSim.zig");
+    // TODO: meaby in comptime i could find all specyfic files and create comptime union for them ?xD
+    // but first enum for that union is neaded?
     const Self = @This();
 
-    const asad = [_]type{ geo, scene, ChessBoard, GlbPreview };
+    const asad = [_]type{ that_was_nawig_hmm, chess_board };
 
-    pub fn union_fn(allocator: *const AppMemory, window: *RLWindow) !void {
+    a: asad[0],
+    b: asad[1],
+
+    pub fn union_fn(memories: *const AppMemory, window: *RLWindow) !void {
         const selected_scene = .chess_board;
+        // could select
 
-        const a = switch (selected_scene) {
-            .chess_board => ChessBoard.launchAppWindow(allocator, window),
-            .glb_preview => GlbPreview.launchAppWindow(allocator, window),
-            .simple_2d_scene => scene.launchAppWindow(allocator, window),
-            else => return error.NotEnoughData,
+        const termination = switch (selected_scene) {
+            .simple_2d_scene => that_was_nawig_hmm.launchAppWindow(memories, window),
+            .chess_board => chess_board.launchAppWindow(memories, window),
+            .with_glbs => scene_with_glbs.launchAppWindow(memories, window),
+            .springs => scene_with_springs.launchAppWindow(memories, window),
+            else => return {},
         };
 
-        a catch unreachable;
-
-        // const filenames = try fs.getAllGlbs(aloc.gpa);
-        // geo.external_glbs = filenames;
-        // defer {
-        //     for (filenames) |file| aloc.gpa.free(file);
-        //     aloc.gpa.free(filenames);
-        // }
-        // try geo.launchAppWindow(aloc, win);
-        // try scene.launchAppWindow(aloc, win);
-        // try ChessBoard.launchAppWindow(aloc, win);
-        // try GlbPreview.launchAppWindow(allocator, window);
+        termination catch {
+            std.debug.print("!!! errors cannot bublb up further\n", .{});
+        };
     }
 };

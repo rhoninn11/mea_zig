@@ -3,19 +3,17 @@ const Inst = std.time.Instant;
 const Timer = std.time.Timer;
 
 pub const Timeline = struct {
-    then: Inst,
-    tmr: Timer,
     last_lap: f32 = 0,
+    timer: Timer,
 
     pub fn init() !Timeline {
         return Timeline{
-            .then = try Inst.now(),
-            .tmr = try Timer.start(),
+            .timer = try Timer.start(),
         };
     }
 
     pub fn tickMs(self: *Timeline) f32 {
-        self.last_lap = @floatFromInt(self.tmr.lap());
+        self.last_lap = @floatFromInt(self.timer.lap());
         self.last_lap /= std.time.ns_per_ms;
         return self.last_lap;
     }
