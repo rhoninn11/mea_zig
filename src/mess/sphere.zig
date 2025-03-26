@@ -8,6 +8,8 @@ const math = @import("math.zig");
 const Cube = struct {
     size: math.fvec3 = @splat(1),
     pos: math.fvec3 = @splat(0),
+    // but i thing it also should have rotation
+    // axis aligned box is special case
 };
 
 pub const Sphere = struct {
@@ -68,26 +70,33 @@ pub fn cubeSphereTachin(one: Cube, second: Sphere) TachinState {
     _ = one;
     _ = second;
     // idono which strategy to sellect
+
+    return TachinState.far;
+}
+pub fn cubeCubeTachin(one: Cube, second: Cube) TachinState {
+    _ = one;
+    _ = second;
+
     return TachinState.far;
 }
 
-const a = Sphere{
-    .size = 1,
-    .pos = .{ 0, 0, 2 },
-};
+const a = Sphere{ .size = 1, .pos = .{ 0, 0, 2 } };
+const b = Sphere{ .size = 0.5, .pos = .{ 0, 0, 0 } };
+const c = Cube{ .size = @splat(1), .pos = @splat(0) };
+const d = Cube{ .size = @splat(1), .pos = .{ 0, 0, 2 } };
 
-const b = Sphere{
-    .size = 0.5,
-    .pos = .{ 0, 0, 0 },
-};
-const K = 1024;
-
-test "sphere touching" {
+test "touching test" {
     const ab = sphereTachin(a, b);
     try std.testing.expect(ab == .far);
     const aa = sphereTachin(a, a);
     try std.testing.expect(aa == .touching);
+    const ac = cubeSphereTachin(c, a);
+    try std.testing.expect(ac == .touching);
 }
+
+const K = 1024;
+
+test "cubes tauching" {}
 
 fn populateSpheresRandom(shperes: []Sphere, indices: []@Vector(2, usize)) void {
     var rand = std.rand.DefaultPrng.init(0);

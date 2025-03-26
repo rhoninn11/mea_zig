@@ -87,7 +87,7 @@ pub fn generateProto(b: *std.Build, dep: *Dependency) void {
 // for next tryies with emscripten
 // cmd: zig build -Dtarget=wasm32-emscripten --sysroot /opt/emsdk/upstream/emscripten
 pub fn nativeApp(b: *std.Build, main_file: []const u8) !void {
-    const run_step = b.step("run", "+++ run cli app after build");
+    const run_step = b.step("main", "+++ builds and run");
     const test_step = b.step("test", "+++ run unit tests");
     const cmd_step = b.step("cmd", "+++ run system command");
 

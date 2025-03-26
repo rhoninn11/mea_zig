@@ -21,20 +21,25 @@ const ChessRepr = struct {
     allocator: Allocator,
     matrices: []rl.Matrix,
     material: rl.Material,
+    model: rl.Model,
 
     pub fn init(alloc: Allocator) !ChessRepr {
-        return ChessRepr{
+        var initor = ChessRepr{
             .render_state = try ChessType.init(alloc),
             .matrices = try alloc.alloc(rl.Matrix, ChessType.fields),
             .allocator = alloc,
             .material = rl.loadMaterialDefault(),
+            .model = rl.loadModel("assets/kostka.glb"),
         };
+        hmmm(&initor.material);
+        return initor;
     }
 
     pub fn deinit(self: ChessRepr) void {
         self.render_state.deinit();
         self.allocator.free(self.matrices);
         rl.unloadMaterial(self.material);
+        rl.unloadModel(self.model);
     }
 
     // TODO: precalulate matrices for instanced rendering of fields
@@ -54,9 +59,35 @@ const ChessRepr = struct {
         const state = self.render_state;
         state.repr();
 
-        // rl.drawMeshInstanced(_not_implemented, self.material, self.matrices);
+        // // ---------------------
+        // // instancing polygon
+        // hmmm(&self.material);
+        // rl.drawMeshInstanced(self.model.meshes[0], self.material, self.matrices);
+        // // ---------------------
+
     }
 };
+
+fn hmmm(mat: *rl.Material) void {
+    const locs = @typeInfo(rl.ShaderLocationIndex).Enum;
+    const shader_locs = mat.shader.locs;
+    var val: c_int = 0;
+    std.debug.print("-----\n", .{});
+    inline for (locs.fields) |loc| {
+        val = shader_locs[loc.value];
+        if (val != -1) {
+            std.debug.print("{d} {s} {d}\n", .{ loc.value, loc.name, shader_locs[loc.value] });
+        }
+    }
+    std.debug.print("-----\n", .{});
+
+    const m_size = @sizeOf(rl.Material);
+    const s_size = @sizeOf(rl.Shader);
+    std.debug.print("!!! m_size {d}, s_size {d}\n", .{ m_size, s_size });
+
+    const shader = mat.shader;
+    std.debug.print("!!! shader id {d}\n", .{shader.id});
+}
 
 const World = struct {
     observers: [2]math.fvec3,
