@@ -24,14 +24,14 @@ const ChessRepr = struct {
     model: rl.Model,
 
     pub fn init(alloc: Allocator) !ChessRepr {
-        var initor = ChessRepr{
+        const initor = ChessRepr{
             .render_state = try ChessType.init(alloc),
             .matrices = try alloc.alloc(rl.Matrix, ChessType.fields),
             .allocator = alloc,
             .material = rl.loadMaterialDefault(),
             .model = rl.loadModel("assets/kostka.glb"),
         };
-        hmmm(&initor.material);
+        // hmmm(&initor.material);
         return initor;
     }
 
@@ -96,6 +96,33 @@ const World = struct {
 const sphere = @import("sphere.zig");
 const math = @import("math.zig");
 
+const ShaderTup = struct {
+    vs: [:0]const u8,
+    fs: [:0]const u8,
+};
+
+fn assetFolder() []const u8 {
+    return "assets";
+}
+
+fn shaderFiles(name: []const u8) ShaderTup {
+    const asset_dir = assetFolder();
+    const shader_dir = asset_dir ++ "/shaders/";
+
+    const vert = shader_dir ++ name ++ ".vs";
+    const frag = shader_dir ++ name ++ ".fs";
+
+    return ShaderTup{
+        .vs = vert,
+        .fs = frag,
+    };
+}
+
+fn paramTest(sh: rl.Shader, param_name: [:0]const u8) void {
+    const loc = rl.getShaderLocation(sh, param_name);
+    std.debug.print("+++ loc of \"{s}\" is at {d}\n", .{ param_name, loc });
+}
+
 fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
     var p1 = player.Player.init();
     var chess_repr = try ChessRepr.init(alloc);
@@ -112,16 +139,28 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     };
 
     var total_s: f32 = 0;
+
+    const grad = comptime shaderFiles("grad");
+    const basic_shader = rl.loadShader(grad.vs, grad.fs);
+    defer rl.unloadShader(basic_shader);
     const model_sky = rl.loadModel("assets/globe.glb");
     defer rl.unloadModel(model_sky);
-    const basic_shader = rl.loadShader("assets/base.vs", "assets/simple.fs");
-    defer rl.unloadShader(basic_shader);
-
     model_sky.materials[0].shader = basic_shader;
-    const skysphere = &model_sky.meshes[0];
-    const vert_num: u32 = @intCast(skysphere.vertexCount);
 
-    std.debug.print("+++ vert count is: {d}\n", .{vert_num});
+    const matParam = comptime shaderFiles("matParam");
+    const exp_shader = rl.loadShader(matParam.vs, matParam.fs);
+
+    paramTest(exp_shader, "center");
+    paramTest(exp_shader, "texture0");
+    paramTest(exp_shader, "colDiffuse");
+    paramTest(exp_shader, "mvp");
+
+    const cube_asset = rl.loadModel("assets/kostka.glb");
+    defer rl.unloadModel(cube_asset);
+    cube_asset.materials[0].shader = exp_shader;
+
+    // cube_asset.materials[0].
+
     // const aBitLeft = rl.Vector3.init(0.1, 0, 0);
     while (exiter.toContinue()) {
         const delta_ms = timeline.tickMs();
@@ -160,6 +199,8 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
             p1.drawSphere(sColor);
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 15, rl.Color.blue);
+
+            rl.drawModel(cube_asset, rl.Vector3.zero(), 1, rl.Color.white);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
