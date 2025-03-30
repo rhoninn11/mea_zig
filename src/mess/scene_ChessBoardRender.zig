@@ -112,6 +112,10 @@ fn shaderFiles(name: []const u8) ShaderTup {
     const vert = shader_dir ++ name ++ ".vs";
     const frag = shader_dir ++ name ++ ".fs";
 
+    // defer {
+    //     std.debug.print("+++ {s} and {s} loaded\n", .{ vert, frag });
+    // }
+
     return ShaderTup{
         .vs = vert,
         .fs = frag,
@@ -141,23 +145,36 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     var total_s: f32 = 0;
 
     const grad = comptime shaderFiles("grad");
-    const basic_shader = rl.loadShader(grad.vs, grad.fs);
-    defer rl.unloadShader(basic_shader);
+    const shader_gradient = rl.loadShader(
+        grad.vs,
+        grad.fs,
+    );
+    defer rl.unloadShader(shader_gradient);
     const model_sky = rl.loadModel("assets/globe.glb");
     defer rl.unloadModel(model_sky);
-    model_sky.materials[0].shader = basic_shader;
+    model_sky.materials[0].shader = shader_gradient;
 
-    const matParam = comptime shaderFiles("matParam");
-    const exp_shader = rl.loadShader(matParam.vs, matParam.fs);
+    const param = comptime shaderFiles("param");
+    const shader_parametric = rl.loadShader(
+        param.vs,
+        param.fs,
+    );
+    defer rl.unloadShader(shader_parametric);
+    const model_cube = rl.loadModel("assets/kostka.glb");
+    defer rl.unloadModel(model_cube);
+    model_cube.materials[1].shader = shader_parametric;
+    // hmmm: why this model uses mateial at index 1?
 
-    paramTest(exp_shader, "center");
-    paramTest(exp_shader, "texture0");
-    paramTest(exp_shader, "colDiffuse");
-    paramTest(exp_shader, "mvp");
+    paramTest(shader_parametric, "draw_color");
+    paramTest(shader_parametric, "texture0");
+    paramTest(shader_parametric, "colDiffuse");
+    paramTest(shader_parametric, "mvp");
 
-    const cube_asset = rl.loadModel("assets/kostka.glb");
-    defer rl.unloadModel(cube_asset);
-    cube_asset.materials[0].shader = exp_shader;
+    const my_uniform = rl.getShaderLocation(shader_parametric, "draw_color");
+    const red: @Vector(4, f32) = .{ 1, 0, 0, 0 };
+    rl.setShaderValue(shader_parametric, my_uniform, &red, .shader_uniform_vec4);
+
+    std.debug.print("hhh {d}\n", .{model_cube.materialCount});
 
     // cube_asset.materials[0].
 
@@ -200,7 +217,7 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 15, rl.Color.blue);
 
-            rl.drawModel(cube_asset, rl.Vector3.zero(), 1, rl.Color.white);
+            rl.drawModel(model_cube, rl.Vector3.zero(), 1, rl.Color.blue);
         }
 
         rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
