@@ -8,7 +8,7 @@ in float height;
 // Input uniform values
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
-uniform vec4 draw_color = vec4(0,0,0,0);
+uniform vec4 user_color = vec4(0,0,0,0);
 
 // Output fragment color
 out vec4 finalColor;
@@ -27,5 +27,5 @@ void main()
 
     
     // Calculate final fragment color
-    finalColor = vec4(draw_color.xyz, tex_col.a);
+    finalColor = vec4(user_color.xyz, tex_col.a);
 }

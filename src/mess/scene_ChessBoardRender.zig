@@ -165,14 +165,21 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     model_cube.materials[1].shader = shader_parametric;
     // hmmm: why this model uses mateial at index 1?
 
-    paramTest(shader_parametric, "draw_color");
+    paramTest(shader_parametric, "user_color");
+    paramTest(shader_parametric, "user_mat");
     paramTest(shader_parametric, "texture0");
     paramTest(shader_parametric, "colDiffuse");
     paramTest(shader_parametric, "mvp");
 
-    const my_uniform = rl.getShaderLocation(shader_parametric, "draw_color");
+    const user_mat = rl.getShaderLocation(shader_parametric, "user_mat");
+    const user_color = rl.getShaderLocation(shader_parametric, "user_color");
     const red: @Vector(4, f32) = .{ 1, 0, 0, 0 };
-    rl.setShaderValue(shader_parametric, my_uniform, &red, .shader_uniform_vec4);
+    var transform = rl.Matrix.identity();
+    transform = rl.Matrix.identity();
+    transform = transform.multiply(rl.Matrix.scale(0.5, 0.5, 0.5));
+
+    rl.setShaderValue(shader_parametric, user_color, &red, .shader_uniform_vec4);
+    rl.setShaderValueMatrix(shader_parametric, user_mat, transform);
 
     std.debug.print("hhh {d}\n", .{model_cube.materialCount});
 
