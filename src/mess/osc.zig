@@ -1,13 +1,14 @@
 const std = @import("std");
-const math = @import("core/math.zig");
+const math = @import("math.zig");
 const vf2 = math.fv2;
 
 pub const Osc = struct {
-    amp: f32 = 20,
+    amp: f32 = 1,
     phase: f32 = 0,
+    freq: f32 = 1,
 
     pub fn update(self: *Osc, time_delta_ms: f32) void {
-        const delta_s = time_delta_ms / std.time.ms_per_s;
+        const delta_s = time_delta_ms * self.freq / std.time.ms_per_s;
         self.phase += delta_s * std.math.pi * 2;
     }
 
@@ -17,8 +18,13 @@ pub const Osc = struct {
         return vf2{ x, y };
     }
 
+    pub fn sample(self: Osc) f32 {
+        return std.math.cos(self.phase) * self.amp;
+    }
     pub fn createN(comptime n: usize) [n]Osc {
         const result: [n]Osc = .{Osc{}} ** n;
         return result;
     }
 };
+
+const Self = Osc;

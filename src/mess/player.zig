@@ -9,7 +9,7 @@ const Sphere = collision.Sphere;
 pub const Player = struct {
     pos: rl.Vector3,
     camera: rl.Camera,
-    sphere: Sphere,
+    colider: Sphere,
 
     pub fn init() Player {
         var cam = view.cameraPersp();
@@ -17,7 +17,7 @@ pub const Player = struct {
         return Player{
             .camera = cam,
             .pos = cam.target,
-            .sphere = Sphere{
+            .colider = Sphere{
                 .pos = math.asRelVec3(cam.target),
                 .size = 0.3,
             },
@@ -28,12 +28,12 @@ pub const Player = struct {
         const cam = &self.camera;
         rl.updateCamera(cam, .camera_third_person);
         const shared_pos = cam.target;
-        self.sphere.pos = math.asRelVec3(shared_pos);
+        self.colider.pos = math.asRelVec3(shared_pos);
         self.pos = shared_pos;
     }
 
     pub fn drawSphere(self: *Player, color: rl.Color) void {
-        rl.drawSphere(self.pos, self.sphere.size, color);
+        rl.drawSphere(self.pos, self.colider.size, color);
     }
 
     // TODO: what i want to implement here is custom implementation of 3d movement

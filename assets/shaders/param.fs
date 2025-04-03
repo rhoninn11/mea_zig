@@ -21,11 +21,11 @@ void main()
     vec4 tex_col = texture(texture0, fragTexCoord)*colDiffuse*fragColor;
 
     // Convert texel color to grayscale using NTSC conversion weights
-    float gray = dot(tex_col.rgb, vec3(0.299, 0.587, 0.114))*0.9;
-    vec3 gray_col = vec3(gray, gray, gray);
-    vec3 mixed_col = tex_col.rgb * height + gray_col * (1-height);
+    float gray = dot(colDiffuse.rgb, vec3(0.299, 0.587, 0.114))*0.9;
+    vec4 gray_col = vec4(gray, gray, gray, 1);
+    vec4 mixed_col = fragColor*0.33;
 
     
     // Calculate final fragment color
-    finalColor = vec4(user_color.xyz, tex_col.a);
+    finalColor = vec4(mixed_col.xy, 0, tex_col.a);
 }

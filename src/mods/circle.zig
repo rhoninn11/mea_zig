@@ -1,7 +1,7 @@
 const rl = @import("raylib");
 const std = @import("std");
 
-const Osc = @import("osc.zig").Osc;
+const Osc = @import("../mess/osc.zig").Osc;
 const Signal = @import("input.zig").Signal;
 
 pub const THEME = @import("core/repr.zig").Theme;

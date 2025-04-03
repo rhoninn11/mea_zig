@@ -69,9 +69,11 @@ pub fn ChessRenderState(_x: u32, _y: u32) type {
         }
 
         pub fn repr(self: Self) void {
+            const shared_y = -0.5;
             for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, z, y, c| {
-                var pos = rl.Vector3.init(x, y, z);
-                pos = pos.multiply(rl.Vector3.init(8, 8, 8));
+                _ = y;
+                var pos = rl.Vector3.init(x, shared_y, z);
+                pos = pos.multiply(rl.Vector3.init(8, 1, 8));
                 const size = rl.Vector3.init(1, 0.33, 1);
                 rl.drawCubeWiresV(pos, size, c);
             }

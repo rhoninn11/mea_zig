@@ -14,6 +14,7 @@ const player = @import("player.zig");
 
 const Allocator = std.mem.Allocator;
 const chess = @import("chess.zig");
+const Osc = @import("osc.zig").Osc;
 
 const ChessRepr = struct {
     const ChessType = chess.ChessRenderState(8, 8);
@@ -122,9 +123,26 @@ fn shaderFiles(name: []const u8) ShaderTup {
     };
 }
 
-fn paramTest(sh: rl.Shader, param_name: [:0]const u8) void {
-    const loc = rl.getShaderLocation(sh, param_name);
-    std.debug.print("+++ loc of \"{s}\" is at {d}\n", .{ param_name, loc });
+fn hasUniform(sh: rl.Shader, param_name: [:0]const u8, v: bool) bool {
+    const yes = rl.getShaderLocation(sh, param_name) >= 0;
+    if (v and !yes) std.debug.print("+++ {s} is missing\n", .{param_name});
+    return yes;
+}
+
+fn hasUnoforms(sh: rl.Shader, names: []const [:0]const u8, v: bool) bool {
+    var ans = true;
+    for (names) |name|
+        ans = ans and hasUniform(sh, name, v);
+    return ans;
+}
+
+inline fn rlTranslate(v: math.fvec3) rl.Matrix {
+    return rl.Matrix.translate(v[0], v[1], v[2]);
+}
+
+fn axisSlide(axis: math.fvec3, amount: f32) rl.Matrix {
+    const amountV: math.fvec3 = @splat(amount);
+    return rlTranslate(axis * amountV);
 }
 
 fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
@@ -165,57 +183,78 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     model_cube.materials[1].shader = shader_parametric;
     // hmmm: why this model uses mateial at index 1?
 
-    paramTest(shader_parametric, "user_color");
-    paramTest(shader_parametric, "user_mat");
-    paramTest(shader_parametric, "texture0");
-    paramTest(shader_parametric, "colDiffuse");
-    paramTest(shader_parametric, "mvp");
+    const loc_to_find: []const [:0]const u8 = &.{
+        "mvp",
+        "texture0",
+        "colDiffuse",
+        "user_color",
+        "user_mat",
+    };
+    std.debug.assert(hasUnoforms(shader_parametric, loc_to_find, true));
 
-    const user_mat = rl.getShaderLocation(shader_parametric, "user_mat");
+    const user_mat_loc = rl.getShaderLocation(shader_parametric, "user_mat");
     const user_color = rl.getShaderLocation(shader_parametric, "user_color");
     const red: @Vector(4, f32) = .{ 1, 0, 0, 0 };
-    var transform = rl.Matrix.identity();
-    transform = rl.Matrix.identity();
-    transform = transform.multiply(rl.Matrix.scale(0.5, 0.5, 0.5));
+    const mat_iden = rl.Matrix.identity();
+
+    const sh_axis: @Vector(3, f32) = .{ 1, 0, 0 };
+    var sh_mat = axisSlide(sh_axis, 1);
+    // transform = rl.Matrix.identity();
+    // transform = transform.multiply(rl.Matrix.scale(0.5, 0.5, 0.5));
 
     rl.setShaderValue(shader_parametric, user_color, &red, .shader_uniform_vec4);
-    rl.setShaderValueMatrix(shader_parametric, user_mat, transform);
+    rl.setShaderValueMatrix(shader_parametric, user_mat_loc, mat_iden);
 
     std.debug.print("hhh {d}\n", .{model_cube.materialCount});
 
     // cube_asset.materials[0].
 
-    // const aBitLeft = rl.Vector3.init(0.1, 0, 0);
+    var osc_basic = Osc{ .freq = 0.25 };
+    var osc_duo = Osc{ .freq = 1 };
+    var osc_trio = Osc{ .freq = 4 };
+    const osc_slice: []const *Osc = &.{ &osc_basic, &osc_duo, &osc_trio };
+
     while (exiter.toContinue()) {
-        const delta_ms = timeline.tickMs();
-        exiter.update(delta_ms);
-        total_s += delta_ms / 1000;
         p1.update();
 
-        const osc: f32 = std.math.sin(total_s);
-        const osc_2: f32 = std.math.cos(total_s * 2);
-        const osc_3: f32 = std.math.cos(total_s * 0.5);
-        const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{osc});
+        const delta_ms = timeline.tickMs();
+        exiter.update(delta_ms);
+        for (osc_slice) |osc| osc.update(delta_ms);
+        total_s += delta_ms / 1000;
 
-        dynamic.pos[0] = 3 * osc_3;
+        const axis_pos = osc_slice[0].sample();
+        dynamic.pos[0] = 3 * axis_pos;
+        const text_value = axis_pos;
+        const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{text_value});
 
-        const sColor = switch (sphere.sphereTachin(p1.sphere, dynamic)) {
+        sh_mat = axisSlide(sh_axis, osc_slice[0].sample());
+        rl.setShaderValueMatrix(shader_parametric, user_mat_loc, sh_mat);
+
+        const sColor = switch (sphere.sphereTachin(p1.colider, dynamic)) {
             .far => rl.Color.orange,
             .touching => rl.Color.purple,
             else => rl.Color.pink,
         };
 
         on_medium.begin();
-        defer on_medium.end();
+        defer {
+            // while in default 3D "layer" draw rest of ui
+            rl.drawText(text.ptr, 10, 10, 24, THEME[1]);
+            exiter.draw();
+            on_medium.end();
+        }
+
         rl.clearBackground(THEME[1]);
         {
             rl.beginMode3D(p1.camera);
             defer rl.endMode3D();
             const base_size = 0.5;
-            const pos = rl.Vector3.init(0, osc * 0.33, 0);
-            rl.drawCube(pos, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.white);
+            const osc_val = osc_slice[1].sample();
+            const osc_val2 = osc_slice[2].sample();
+            const pos = rl.Vector3.init(0, osc_val * 0.33, 0);
+            rl.drawCube(pos, base_size, base_size * 0.33 + osc_val * 0.1, base_size, rl.Color.white);
             const pos_2 = pos.add(rl.Vector3.init(1, 0, 0));
-            rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_2 * 0.1, base_size, rl.Color.black);
+            rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_val2 * 0.1, base_size, rl.Color.black);
 
             chess_repr.repr();
 
@@ -226,9 +265,6 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
 
             rl.drawModel(model_cube, rl.Vector3.zero(), 1, rl.Color.blue);
         }
-
-        rl.drawText(text.ptr, 10, 10, 24, THEME[0]);
-        exiter.draw();
     }
 }
 pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {

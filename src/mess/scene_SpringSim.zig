@@ -12,7 +12,7 @@ const LinePreset = spt.LinePreset;
 const Timeline = @import("../mods/time.zig").Timeline;
 
 const Circle = @import("../mods/circle.zig").Circle;
-const Osc = @import("../mods/osc.zig").Osc;
+const Osc = @import("osc.zig").Osc;
 
 const THEME = repr.Theme;
 const Allocator = std.mem.Allocator;

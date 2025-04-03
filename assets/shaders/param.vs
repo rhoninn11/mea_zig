@@ -25,6 +25,7 @@ void main()
 
     // Calculate final vertex position
     vec4 vertex_pos = mvp*user_mat*vec4(vertexPosition, 1.0);
+    fragColor = vec4(vertex_pos.xyz, 1);
 
     gl_Position = vertex_pos;
     height = clamp(vertexPosition.y, 0.0, 1.0);
