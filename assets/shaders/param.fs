@@ -25,7 +25,10 @@ void main()
     vec4 gray_col = vec4(gray, gray, gray, 1);
     vec4 mixed_col = fragColor*0.33;
 
+    vec4 world_pos = fragColor;
+    float slice_mask = 1 - step(0.23, world_pos.z);
+
     
     // Calculate final fragment color
-    finalColor = vec4(mixed_col.xy, 0, tex_col.a);
+    finalColor = vec4(mixed_col.xy, 0, tex_col.a*slice_mask);
 }
