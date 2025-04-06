@@ -21,6 +21,9 @@ void main()
 
     // Convert texel color to grayscale using NTSC conversion weights
     float gray = dot(tex_col.rgb, vec3(0.299, 0.587, 0.114))*0.1;
+    // height is beetween 0 and 1
+    float height = 0.7+height + 0.3;
+    
     vec3 gray_col = vec3(gray, gray, gray);
     vec3 mixed_col = tex_col.rgb * height + gray_col * (1-height);
 

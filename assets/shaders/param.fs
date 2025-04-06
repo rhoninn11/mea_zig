@@ -15,20 +15,21 @@ out vec4 finalColor;
 
 // NOTE: Add your custom variables here
 
+const float ZERO = 0.0000001;
+// Convert texel color to grayscale using NTSC conversion weights
+    // Convert texel color to grayscale using NTSC conversion weights
+// vec3 monochrom = vec3(0.299, 0.587, 0.114);
+
 void main()
-{
+{   
     // Texel color fetching from texture sampler
     vec4 tex_col = texture(texture0, fragTexCoord)*colDiffuse*fragColor;
+    vec4 tex_col_mute = ZERO*tex_col;
 
-    // Convert texel color to grayscale using NTSC conversion weights
-    float gray = dot(colDiffuse.rgb, vec3(0.299, 0.587, 0.114))*0.9;
-    vec4 gray_col = vec4(gray, gray, gray, 1);
-    vec4 mixed_col = fragColor*0.33;
-
-    vec4 world_pos = fragColor;
-    float slice_mask = 1 - step(0.23, world_pos.z);
-
+    vec4 world_pos = fragColor+tex_col_mute;
+    // imaginary clip plane on z axis at hi
+    float slice_mask = 1 - step(0.23, world_pos.y);
     
     // Calculate final fragment color
-    finalColor = vec4(mixed_col.xy, 0, tex_col.a*slice_mask);
+    finalColor = vec4(user_color.xyz, slice_mask);
 }

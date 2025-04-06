@@ -62,32 +62,38 @@ const ChessRepr = struct {
 
         // // ---------------------
         // // instancing polygon
-        // hmmm(&self.material);
-        // rl.drawMeshInstanced(self.model.meshes[0], self.material, self.matrices);
+        // rlDebugMaterialLocations(&self.material);
+        // rl.drawMeshInstanced(self.model.meshes[0], self.material, self.transforms);
+        // hmm data addres that goes to c is 32bit, just less sigificatn 32 bits of zig 64bit data address
+        // also shader data is messed but it is less problematic thing i guess
         // // ---------------------
 
     }
 };
 
-fn hmmm(mat: *rl.Material) void {
+fn rlDebugMaterialLocations(mat: *rl.Material) void {
+    const s_size = @sizeOf(rl.Shader);
+    const m_size = @sizeOf(rl.Material);
     const locs = @typeInfo(rl.ShaderLocationIndex).Enum;
-    const shader_locs = mat.shader.locs;
+    const shader = mat.shader;
+    const shader_locs = shader.locs;
     var val: c_int = 0;
-    std.debug.print("-----\n", .{});
+
+    std.debug.print("-----------------------------------------\n", .{});
+    defer std.debug.print("-----------------------------------------\n", .{});
+
+    std.debug.print(
+        "-- Material struct size {d}\n,--- Shader struct size {d}\n",
+        .{ m_size, s_size },
+    );
+    std.debug.print("-- Shader id {d}\n", .{shader.id});
+
     inline for (locs.fields) |loc| {
         val = shader_locs[loc.value];
         if (val != -1) {
-            std.debug.print("{d} {s} {d}\n", .{ loc.value, loc.name, shader_locs[loc.value] });
+            std.debug.print("-- {d} {s} {d}\n", .{ loc.value, loc.name, shader_locs[loc.value] });
         }
     }
-    std.debug.print("-----\n", .{});
-
-    const m_size = @sizeOf(rl.Material);
-    const s_size = @sizeOf(rl.Shader);
-    std.debug.print("!!! m_size {d}, s_size {d}\n", .{ m_size, s_size });
-
-    const shader = mat.shader;
-    std.debug.print("!!! shader id {d}\n", .{shader.id});
 }
 
 const World = struct {
@@ -129,7 +135,7 @@ fn hasUniform(sh: rl.Shader, param_name: [:0]const u8, v: bool) bool {
     return yes;
 }
 
-fn hasUnoforms(sh: rl.Shader, names: []const [:0]const u8, v: bool) bool {
+fn hasUniforms(sh: rl.Shader, names: []const [:0]const u8, v: bool) bool {
     var ans = true;
     for (names) |name|
         ans = ans and hasUniform(sh, name, v);
@@ -143,6 +149,12 @@ inline fn rlTranslate(v: math.fvec3) rl.Matrix {
 fn axisSlide(axis: math.fvec3, amount: f32) rl.Matrix {
     const amountV: math.fvec3 = @splat(amount);
     return rlTranslate(axis * amountV);
+}
+
+fn bypassAssert(cond: bool, comptime bypas: bool) void {
+    if (!bypas) {
+        std.debug.assert(cond);
+    }
 }
 
 fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
@@ -183,14 +195,15 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     model_cube.materials[1].shader = shader_parametric;
     // hmmm: why this model uses mateial at index 1?
 
-    const loc_to_find: []const [:0]const u8 = &.{
+    const locs_to_find: []const [:0]const u8 = &.{
         "mvp",
         "texture0",
         "colDiffuse",
         "user_color",
         "user_mat",
     };
-    std.debug.assert(hasUnoforms(shader_parametric, loc_to_find, true));
+    const has_all = hasUniforms(shader_parametric, locs_to_find, true);
+    bypassAssert(has_all, false);
 
     const user_mat_loc = rl.getShaderLocation(shader_parametric, "user_mat");
     const user_color = rl.getShaderLocation(shader_parametric, "user_color");
@@ -261,7 +274,7 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
             const dyn_pos = math.fvec3Rl(dynamic.pos);
             p1.drawSphere(sColor);
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
-            rl.drawModel(model_sky, p1.pos, 15, rl.Color.blue);
+            rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);
 
             rl.drawModel(model_cube, rl.Vector3.zero(), 1, rl.Color.blue);
         }
