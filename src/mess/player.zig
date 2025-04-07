@@ -13,7 +13,7 @@ pub const Player = struct {
 
     pub fn init() Player {
         var cam = view.cameraPersp();
-        rl.updateCamera(&cam, .camera_third_person);
+        rl.updateCamera(&cam, .third_person);
         return Player{
             .camera = cam,
             .pos = cam.target,
@@ -26,7 +26,7 @@ pub const Player = struct {
 
     pub fn update(self: *Player) void {
         const cam = &self.camera;
-        rl.updateCamera(cam, .camera_third_person);
+        rl.updateCamera(cam, .third_person);
         const shared_pos = cam.target;
         self.colider.pos = math.asRelVec3(shared_pos);
         self.pos = shared_pos;

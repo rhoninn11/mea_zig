@@ -6,7 +6,7 @@ const init = rl.Vector3.init(0, 1, -2);
 
 pub fn cameraPersp() rl.Camera {
     return rl.Camera{
-        .projection = .camera_perspective,
+        .projection = .perspective,
         .fovy = 60,
         .up = up,
         .target = rl.Vector3.zero(),
@@ -16,7 +16,7 @@ pub fn cameraPersp() rl.Camera {
 
 pub fn cameraOrtho() rl.Camera {
     return rl.Camera{
-        .projection = .camera_orthographic,
+        .projection = .orthographic,
         .fovy = 20,
         .up = up,
         .target = rl.Vector3.zero(),

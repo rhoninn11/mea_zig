@@ -44,7 +44,7 @@ pub const RLWindow = struct {
         };
 
         const title: [:0]const u8 = "+++ Runing simulation in a window +++";
-        rl.initWindow(screenWidth, screenHeight, title.ptr);
+        rl.initWindow(screenWidth, screenHeight, title);
         return window;
     }
 };

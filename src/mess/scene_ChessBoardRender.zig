@@ -29,8 +29,8 @@ const ChessRepr = struct {
             .render_state = try ChessType.init(alloc),
             .matrices = try alloc.alloc(rl.Matrix, ChessType.fields),
             .allocator = alloc,
-            .material = rl.loadMaterialDefault(),
-            .model = rl.loadModel("assets/kostka.glb"),
+            .material = try rl.loadMaterialDefault(),
+            .model = try rl.loadModel("assets/kostka.glb"),
         };
         // hmmm(&initor.material);
         return initor;
@@ -63,7 +63,7 @@ const ChessRepr = struct {
         // // ---------------------
         // // instancing polygon
         // rlDebugMaterialLocations(&self.material);
-        // rl.drawMeshInstanced(self.model.meshes[0], self.material, self.transforms);
+        rl.drawMeshInstanced(self.model.meshes[0], self.material, self.matrices);
         // hmm data addres that goes to c is 32bit, just less sigificatn 32 bits of zig 64bit data address
         // also shader data is messed but it is less problematic thing i guess
         // // ---------------------
@@ -115,14 +115,8 @@ fn assetFolder() []const u8 {
 fn shaderFiles(name: []const u8) ShaderTup {
     const asset_dir = assetFolder();
     const shader_dir = asset_dir ++ "/shaders/";
-
     const vert = shader_dir ++ name ++ ".vs";
     const frag = shader_dir ++ name ++ ".fs";
-
-    // defer {
-    //     std.debug.print("+++ {s} and {s} loaded\n", .{ vert, frag });
-    // }
-
     return ShaderTup{
         .vs = vert,
         .fs = frag,
@@ -175,22 +169,22 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     var total_s: f32 = 0;
 
     const grad = comptime shaderFiles("grad");
-    const shader_gradient = rl.loadShader(
+    const shader_gradient = try rl.loadShader(
         grad.vs,
         grad.fs,
     );
     defer rl.unloadShader(shader_gradient);
-    const model_sky = rl.loadModel("assets/globe.glb");
+    const model_sky = try rl.loadModel("assets/globe.glb");
     defer rl.unloadModel(model_sky);
     model_sky.materials[0].shader = shader_gradient;
 
     const param = comptime shaderFiles("param");
-    const shader_parametric = rl.loadShader(
+    const shader_parametric = try rl.loadShader(
         param.vs,
         param.fs,
     );
     defer rl.unloadShader(shader_parametric);
-    const model_cube = rl.loadModel("assets/kostka.glb");
+    const model_cube = try rl.loadModel("assets/kostka.glb");
     defer rl.unloadModel(model_cube);
     model_cube.materials[1].shader = shader_parametric;
     // hmmm: why this model uses mateial at index 1?
@@ -215,7 +209,7 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
     // transform = rl.Matrix.identity();
     // transform = transform.multiply(rl.Matrix.scale(0.5, 0.5, 0.5));
 
-    rl.setShaderValue(shader_parametric, user_color, &red, .shader_uniform_vec4);
+    rl.setShaderValue(shader_parametric, user_color, &red, .vec4);
     rl.setShaderValueMatrix(shader_parametric, user_mat_loc, mat_iden);
 
     std.debug.print("hhh {d}\n", .{model_cube.materialCount});
@@ -252,7 +246,7 @@ fn chessboard_arena(alloc: Allocator, on_medium: RenderMedium, exiter: *Exiter, 
         on_medium.begin();
         defer {
             // while in default 3D "layer" draw rest of ui
-            rl.drawText(text.ptr, 10, 10, 24, THEME[1]);
+            rl.drawText(text, 10, 10, 24, THEME[1]);
             exiter.draw();
             on_medium.end();
         }
@@ -287,7 +281,7 @@ pub fn launchAppWindow(aloc: *const AppMemory, win: *RLWindow) !void {
 
     var tmln = try Timeline.init();
 
-    var _exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
+    var _exit = elems.Exiter.spawn(win.corner, rl.KeyboardKey.escape);
     _exit.selfReference();
 
     try chessboard_arena(arena, on_medium, &_exit, &tmln);
