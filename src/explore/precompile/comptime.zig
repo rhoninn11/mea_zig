@@ -8,20 +8,38 @@ const zigModule = @import("testnaemspace.zig");
 const generatedProtobuffer = @import("../../gen/comfy.pb.zig");
 
 // -----
+pub fn examineWegGPU() void {
+    const webGPUHeader = @cImport({
+        @cInclude("webgpu.h");
+    });
+    const comptime_module_summary = comptime typeSummary(webGPUHeader);
+    // show at runtime
+    std.debug.print("{s}\n", .{comptime_module_summary});
+
+    //
+    //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
+    //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
+    //  potem je odczytać
+
+}
 fn summaryLen(about: type) u64 {
     var counter = std.io.countingWriter(std.io.null_writer);
     writeSummary(counter.writer().any(), about);
     return counter.bytes_written;
 }
 
-fn printEnum(writer: anytype, e: Kind) void {
+fn printEnum(summ: Raport, e: Kind) void {
     const enumInfo = e.lower_type.Enum;
-    const f_n = enumInfo.fields.len;
+    const filed_len = enumInfo.fields.len;
     // const d_n = enumInfo.decls.len;
-    writer.print(" (f {d})\n", .{f_n}) catch unreachable;
+    summ.addInfo(" (f {d})\n", .{filed_len});
 
-    for (enumInfo.fields) |field|
-        writer.print(" - {d} - {s: <10}", .{ field.value, field.name }) catch unreachable;
+    for (enumInfo.fields) |field| {
+        summ.addInfo(
+            " - {d} - {s: <10}",
+            .{ field.value, field.name },
+        );
+    }
 }
 
 test "runtime enum field names" {
@@ -75,56 +93,68 @@ const Kind = struct {
     }
 };
 
-fn prefixFilterPass(name: []const u8, exclude_starts: []const []const u8) ?void {
-    for (exclude_starts) |needle|
-        if (std.mem.startsWith(u8, name, needle)) return null;
+fn hasPrefix(name: []const u8, prefix: []const u8) bool {
+    return std.mem.startsWith(u8, name, prefix);
 }
 
-fn printType(writer: anytype) void {
+fn hasPrefixV(name: []const u8, comptime prefixV: []const []const u8) bool {
+    for (prefixV) |pref| {
+        if (hasPrefix(name, pref)) return true;
+    }
+    return false;
+}
+
+fn printType(to: Raport) void {
     const u = @typeInfo(std.builtin.Type).Union;
-    writer.print("f{d} d{d}\n", .{ u.fields.len, u.decls.len }) catch unreachable;
+    to.addInfo("f{d} d{d}\n", .{ u.fields.len, u.decls.len });
 }
 
 // print declaration of struct to writer
-fn printDeclaration(writer: anytype, comptime basic: type) void {
+fn printDeclaration(to: Raport, comptime basic: type) void {
     const top_kind = Kind.of(basic);
     const as_struct = top_kind.lower_type.Struct;
 
     const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
     for (as_struct.decls) |decl| {
-        prefixFilterPass(decl.name, prefs) orelse continue;
-        const member = Kind.fieldOf(basic, decl.name) orelse continue;
+        if (hasPrefixV(decl.name, prefs)) continue;
+        const valid_member = Kind.fieldOf(basic, decl.name) orelse continue;
 
-        writer.print("\n{s: <16} | {s: >7} |  {s}", .{ decl.name, member.lower_name, member.base_name }) catch unreachable;
-        switch (member.lower_type) {
+        to.addInfo(
+            "\n{s: <16} | {s: >7} | {s}",
+            .{ decl.name, valid_member.lower_name, valid_member.base_name },
+        );
+        switch (valid_member.lower_type) {
             // .Enum => printEnum(writer, member),
-            .Union => writer.print("+++\n", .{}) catch unreachable,
+            .Union => to.newLn("+++"),
             else => {},
         }
     }
 }
 
 fn isCEnumName(name: []const u8) bool {
-    return std.mem.startsWith(u8, name, "enum_");
+    return hasPrefix(name, "enum_");
 }
 
-fn countDeclWithPrefix(s: std.builtin.Type.Struct, prefix: []const u8) u32 {
+const Struct = std.builtin.Type.Struct;
+
+fn countDeclWithPrefix(s: Struct, prefix: []const u8) u32 {
     return comptime blk: {
         var count: u32 = 0;
         for (s.decls) |decl| {
-            prefixFilterPass(decl.name, &.{prefix}) orelse {
+            if (hasPrefix(decl.name, prefix)) {
                 count += 1;
-            };
+            }
         }
         break :blk count;
     };
 }
-fn countE(s: std.builtin.Type.Struct) u32 {
+fn countCEnums(s: Struct) u32 {
     return countDeclWithPrefix(s, "enum_");
 }
 
-fn cEnumNames(s: std.builtin.Type.Struct) [countE(s)][]const u8 {
-    var names: [countE(s)][]const u8 = undefined;
+fn cEnumNames(s: Struct) [countCEnums(s)][]const u8 {
+    const name_num = countCEnums(s);
+    var names: [name_num][]const u8 = undefined;
     var idx: u32 = 0;
     for (s.decls) |decl| {
         if (isCEnumName(decl.name)) {
@@ -135,9 +165,10 @@ fn cEnumNames(s: std.builtin.Type.Struct) [countE(s)][]const u8 {
     return names;
 }
 
-fn printDeclSummary(writer: anytype, comptime basic: type) void {
+fn printDeclSummary(summ: *Raport, comptime basic: type) void {
     const top_kind = Kind.of(basic);
     const as_struct = top_kind.lower_type.Struct;
+    const declarations = as_struct.decls;
 
     const tu = @typeInfo(std.builtin.Type).Union;
     const bin_num = tu.fields.len;
@@ -145,28 +176,61 @@ fn printDeclSummary(writer: anytype, comptime basic: type) void {
     var counted: u32 = 0;
 
     const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
-    for (as_struct.decls) |decl| {
-        prefixFilterPass(decl.name, prefs) orelse continue;
+    for (declarations) |decl| {
+        if (hasPrefixV(decl.name, prefs)) continue;
         const member = Kind.fieldOf(basic, decl.name) orelse continue;
 
         const bin_id: u32 = @intFromEnum(std.meta.activeTag(member.lower_type));
         bins[bin_id] += 1;
         counted += 1;
     }
-    writer.print("+++ valid decls {d}/{d}\n", .{ counted, bin_num }) catch unreachable;
+    summ.addInfo(
+        "+++ valid decls {d}/{d}\n",
+        .{ counted, bin_num },
+    );
     for (tu.fields, 0..) |field, i| {
         const curr_bin = bins[i];
-        if (curr_bin > 0)
-            writer.print("{s} - {d}\n", .{ field.name, curr_bin }) catch unreachable;
+        if (curr_bin > 0) {
+            summ.addInfo(
+                "{s} - {d}\n",
+                .{ field.name, curr_bin },
+            );
+        }
     }
-    const a = cEnumNames(as_struct);
-    writer.print("c_enums {d}\n", .{a.len}) catch unreachable;
-    for (a) |name| {
-        writer.print("- {s}\n", .{name}) catch unreachable;
+    const e_enum_names = cEnumNames(as_struct);
+    var total = e_enum_names.len;
+    // writer.print("c_enums {d}\n", .{e_enum_names.len}) catch unreachable;
+    const enum_prefx = "enum_";
+    for (e_enum_names) |name| {
+        const enum_name = name[enum_prefx.len..name.len];
+        var count = 0;
+        for (declarations) |decl| {
+            count += if (hasPrefix(decl.name, enum_name)) 1 else 0;
+        }
+        total += count;
+        summ.addInfo(
+            "- {s} - {d}\n",
+            .{ enum_name, count },
+        );
     }
+
+    summ.addInfo(
+        "- {d} - total\n",
+        .{total},
+    );
 }
 
-fn writeSummary(writer: anytype, about: type) void {
+const Raport = struct {
+    wrt: std.io.AnyWriter,
+    pub inline fn addInfo(self: *Raport, comptime format: []const u8, args: anytype) void {
+        self.wrt.print(format, args) catch unreachable;
+    }
+    pub inline fn newLn(self: *Raport, prefix: []const u8) void {
+        self.wrt.print("{s}\n", .{prefix}) catch unreachable;
+    }
+};
+
+fn writeSummary(writer: std.io.AnyWriter, about: type) void {
     const name = @typeName(about);
     const as_struct = @typeInfo(about).Struct;
     const f_n = as_struct.fields.len;
@@ -174,16 +238,17 @@ fn writeSummary(writer: anytype, about: type) void {
     const fld_num: u32 = as_struct.fields.len;
     const decl_num: u32 = as_struct.decls.len;
 
-    writer.print("+++ looking at:\n\t{s} (f {d}) (d {d})\n", .{ name, fld_num, decl_num }) catch unreachable;
+    var summ = Raport{ .wrt = writer };
+    summ.addInfo("+++ looking at:\n\t{s} (f {d}) (d {d})\n", .{ name, fld_num, decl_num });
 
     for (as_struct.fields) |field| {
-        writer.print("\t{s},", .{field.name}) catch unreachable;
+        summ.addInfo("\t{s},", .{field.name});
     }
-    if (f_n != 0) writer.print("\n", .{}) catch unreachable;
+    if (f_n != 0) summ.newLn();
 
-    printDeclSummary(writer, about);
+    printDeclSummary(&summ, about);
     // printDeclaration(writer, about);
-    writer.print("\n", .{}) catch unreachable;
+    summ.newLn("");
 }
 
 fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
@@ -198,20 +263,9 @@ fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
     }
 }
 
-pub fn examineType(comptime module: type) void {
-    const module_summary = comptime typeSummary(module);
-    std.debug.print("{s}\n", .{module_summary});
-
-    //
-    //  Ale domyślny cel jest taki, żeby znaleźć wszystkie enumy i stworzyć dla nich funkcję,
-    //  która będzie zwracała nazwy wszystkich pól jako stringi, tak żeby w runtimeie można było
-    //  potem je odczytać
-    //  istniej nawet sznasa na jej szybkie wykorzystanie w funkcji oznaczonej jako _manual
-
-}
-
 pub fn comptimeExperiment() void {
-    examineType(cModule);
+    examineWegGPU();
+    // examineType();
     // examineType(zigModule);
     // examineType(generatedProtobuffer);
 }
