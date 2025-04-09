@@ -6,15 +6,15 @@ const math = @import("math.zig");
 // aby było związne z gamedevem i
 
 const Cube = struct {
-    size: math.fvec3 = @splat(1),
     pos: math.fvec3 = @splat(0),
+    size: math.fvec3 = @splat(1),
     // but i thing it also should have rotation
     // axis aligned box is special case
 };
 
 pub const Sphere = struct {
-    size: f32 = 1,
     pos: math.fvec3 = @splat(0),
+    size: f32 = 1,
 };
 pub const TachinState = enum {
     far,

@@ -3,12 +3,24 @@ const rl = @import("raylib");
 const math = @import("math.zig");
 const Allocator = std.mem.Allocator;
 
-pub fn ChessRenderState(_x: u32, _y: u32) type {
+const Size2D = struct {
+    len: u32,
+    x_dim: u32,
+    z_dim: u32,
+
+    pub fn init(x: u32, z: u32) Size2D {
+        return Size2D{
+            .x_dim = x,
+            .z_dim = z,
+            .len = x * z,
+        };
+    }
+};
+
+pub fn Chessboard(_x: u32, _y: u32) type {
     return struct {
         const Self = @This();
-        const xn = _x;
-        const yn = _y;
-        pub const fields = _x * _y;
+        pub const chess_size = Size2D.init(_x, _y);
         alloc: Allocator,
         x_pos: []f32,
         y_pos: []f32,
@@ -23,16 +35,17 @@ pub fn ChessRenderState(_x: u32, _y: u32) type {
             alloc.free(self.col);
         }
 
-        fn initPos(self: *Self, sz: anytype) void {
+        fn calcPos(self: *Self, size: Size2D) void {
             const x_pos = self.x_pos;
             @memset(x_pos, 3);
-            for (0..sz.fields) |x| x_pos[x] = @floatFromInt(@mod(x, 8));
+            for (0..size.len) |x|
+                x_pos[x] = @floatFromInt(@mod(x, 8));
 
             const y_pos = self.y_pos;
-            for (0..sz.yn) |y| {
-                const row_idx = y * sz.yn;
-                const row_value: f32 = @floatFromInt(y);
-                const row_memory = y_pos[row_idx .. row_idx + sz.xn];
+            for (0..size.z_dim) |z| {
+                const row_idx = z * size.z_dim;
+                const row_value: f32 = @floatFromInt(z);
+                const row_memory = y_pos[row_idx .. row_idx + size.x_dim];
                 @memset(row_memory, row_value);
             }
             @memset(self.z_pos, 0);
@@ -41,8 +54,20 @@ pub fn ChessRenderState(_x: u32, _y: u32) type {
             math.center(self.y_pos);
         }
 
+        fn calcColor(self: *Self, size: Size2D) void {
+            for (0..size.len) |i| {
+                const odd_row = @divTrunc(i, size.x_dim);
+                const row_flip = @mod(odd_row, 2);
+                self.col[i] = switch (@mod(i + row_flip, 2)) {
+                    inline 0 => rl.Color.white,
+                    inline 1 => rl.Color.black,
+                    else => unreachable,
+                };
+            }
+        }
+
         pub fn init(alloc: Allocator) !Self {
-            const n = Self.fields;
+            const n = Self.chess_size.len;
             var state = Self{
                 .alloc = alloc,
                 .x_pos = try alloc.alloc(f32, n),
@@ -51,20 +76,9 @@ pub fn ChessRenderState(_x: u32, _y: u32) type {
                 .col = try alloc.alloc(rl.Color, n),
             };
 
-            state.initPos(.{
-                .fields = Self.fields,
-                .xn = Self.xn,
-                .yn = Self.yn,
-            });
+            state.calcPos(Self.chess_size);
+            state.calcColor(Self.chess_size);
 
-            for (0..Self.fields) |i| {
-                const row_flip = @mod(@divTrunc(i, 8), 2);
-                state.col[i] = switch (@mod(i + row_flip, 2)) {
-                    inline 0 => rl.Color.white,
-                    inline 1 => rl.Color.black,
-                    else => unreachable,
-                };
-            }
             return state;
         }
 
@@ -79,7 +93,7 @@ pub fn ChessRenderState(_x: u32, _y: u32) type {
             }
         }
 
-        pub fn debugInfo(self: *Self) void {
+        pub fn debugInfo(self: *const Self) void {
             const x_mm = math.minMax(self.x_pos);
             const y_mm = math.minMax(self.y_pos);
             const z_mm = math.minMax(self.z_pos);
