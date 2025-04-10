@@ -13,8 +13,7 @@ fn color_switch(b: bool) rl.Color {
     };
 }
 
-const math = @import("core/math.zig");
-const iv2 = math.iv2;
+const math = @import("../mess/math.zig");
 const fv2 = math.fv2;
 const i2f = math.i2f;
 

@@ -16,9 +16,8 @@ pub const Sphere = struct {
     pos: math.fvec3 = @splat(0),
     size: f32 = 1,
 };
-pub const TachinState = enum {
-    far,
-    close,
+pub const ColideResult = enum {
+    miss,
     touching,
 };
 const col_type = enum {
@@ -52,7 +51,7 @@ test "quadratic r" {
     try std.testing.expectEqual(0.25, quadraticR(&s1));
 }
 
-pub fn sphereTachin(one: Sphere, second: Sphere) TachinState {
+pub fn sphereTachin(one: Sphere, second: Sphere) ColideResult {
     const delta = second.pos - one.pos;
     const q_dist = math.dot(delta, delta);
 
@@ -61,23 +60,23 @@ pub fn sphereTachin(one: Sphere, second: Sphere) TachinState {
     // std.time.sleep(1 * std.time.ns_per_s);
 
     if (q_size_sum > q_dist) {
-        return TachinState.touching;
+        return ColideResult.touching;
     } else {
-        return TachinState.far;
+        return ColideResult.miss;
     }
 }
-pub fn cubeSphereTachin(one: Cube, second: Sphere) TachinState {
+pub fn cubeSphereTachin(one: Cube, second: Sphere) ColideResult {
     _ = one;
     _ = second;
     // idono which strategy to sellect
 
-    return TachinState.far;
+    return ColideResult.miss;
 }
-pub fn cubeCubeTachin(one: Cube, second: Cube) TachinState {
+pub fn cubeCubeTachin(one: Cube, second: Cube) ColideResult {
     _ = one;
     _ = second;
 
-    return TachinState.far;
+    return ColideResult.miss;
 }
 
 const a = Sphere{ .size = 1, .pos = .{ 0, 0, 2 } };
@@ -87,7 +86,7 @@ const d = Cube{ .size = @splat(1), .pos = .{ 0, 0, 2 } };
 
 test "touching test" {
     const ab = sphereTachin(a, b);
-    try std.testing.expect(ab == .far);
+    try std.testing.expect(ab == .miss);
     const aa = sphereTachin(a, a);
     try std.testing.expect(aa == .touching);
     const ac = cubeSphereTachin(c, a);

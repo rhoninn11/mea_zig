@@ -47,9 +47,12 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
 
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
     var p1 = player.Player.init();
-    var chessboard = try chess.Chessboard(8, 8).init(alloc);
+    var chessboard = try chess.WobblyChessboard().init(alloc);
     defer chessboard.deinit();
-    chessboard.debugInfo();
+    chessboard.board.debugInfo();
+
+    chessboard.update(500);
+    chessboard.oscInfo();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
@@ -97,6 +100,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         const delta_ms = timeline.tickMs();
         p1.update(delta_ms);
         exiter.update(delta_ms);
+        chessboard.update(delta_ms);
         for (osc_slice) |osc| osc.update(delta_ms);
         total_s += delta_ms / 1000;
 
@@ -109,9 +113,8 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         rl.setShaderValueMatrix(parametric.shader, user_mat_loc, t_on_axis);
 
         const sColor = switch (sphere.sphereTachin(p1.colider, dynamic)) {
-            .far => rl.Color.orange,
+            .miss => rl.Color.orange,
             .touching => rl.Color.purple,
-            else => rl.Color.pink,
         };
 
         medium.begin();
@@ -139,8 +142,8 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);
 
-            parametric.repr(rl.Vector3.zero());
-            chessboard.repr();
+            // parametric.repr(rl.Vector3.zero());
+            chessboard.board.repr();
         }
     }
 }
