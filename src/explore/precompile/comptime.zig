@@ -131,33 +131,27 @@ fn printDeclaration(to: Raport, comptime basic: type) void {
     }
 }
 
-fn isCEnumName(name: []const u8) bool {
-    return hasPrefix(name, "enum_");
-}
-
 const Struct = std.builtin.Type.Struct;
+const Declaration = std.builtin.Type.Declaration;
+const c_enum_prefix = "enum_";
 
-fn countDeclWithPrefix(s: Struct, prefix: []const u8) u32 {
+fn countPrefix(decls: []const Declaration, prefix: []const u8) u32 {
     return comptime blk: {
         var count: u32 = 0;
-        for (s.decls) |decl| {
-            if (hasPrefix(decl.name, prefix)) {
+        for (decls) |d| {
+            if (hasPrefix(d.name, prefix)) {
                 count += 1;
             }
         }
         break :blk count;
     };
 }
-fn countCEnums(s: Struct) u32 {
-    return countDeclWithPrefix(s, "enum_");
-}
 
-fn cEnumNames(s: Struct) [countCEnums(s)][]const u8 {
-    const name_num = countCEnums(s);
-    var names: [name_num][]const u8 = undefined;
+fn cEnumNames(decls: []const Declaration, comptime len: u32) [len][]const u8 {
+    var names: [len][]const u8 = undefined;
     var idx: u32 = 0;
-    for (s.decls) |decl| {
-        if (isCEnumName(decl.name)) {
+    for (decls) |decl| {
+        if (hasPrefix(decl.name, c_enum_prefix)) {
             names[idx] = decl.name;
             idx += 1;
         }
@@ -175,15 +169,31 @@ fn printDeclSummary(summ: *Raport, comptime basic: type) void {
     var bins: [bin_num]u32 = .{0} ** bin_num;
     var counted: u32 = 0;
 
-    const prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
+    // counting valid declarations, to simplicity decls buffer large enought
+    const garbage_prefs: []const []const u8 = &.{ "__", "_", "offsetof", "WGPU_" };
+    var decls_scrachpad: [4096]Declaration = undefined;
     for (declarations) |decl| {
-        if (hasPrefixV(decl.name, prefs)) continue;
+        if (hasPrefixV(decl.name, garbage_prefs)) continue;
         const member = Kind.fieldOf(basic, decl.name) orelse continue;
 
         const bin_id: u32 = @intFromEnum(std.meta.activeTag(member.lower_type));
+        decls_scrachpad[counted] = decl;
         bins[bin_id] += 1;
         counted += 1;
     }
+
+    const valid_decl: []Declaration = decls_scrachpad[0..counted];
+
+    // var filterd_decls: [counted]Declaration = undefined;
+    // var idx: u32 = 0;
+    // for (declarations) |decl| {
+    //     const processed = Kind.fieldOf(basic, decl.name);
+    //     if (!hasPrefixV(decl.name, prefs) and processed != null) {
+    //         filterd_decls[idx] = decl;
+    //         idx += 1;
+    //     }
+    // }
+
     summ.addInfo(
         "+++ valid decls {d}/{d}\n",
         .{ counted, bin_num },
@@ -197,27 +207,38 @@ fn printDeclSummary(summ: *Raport, comptime basic: type) void {
             );
         }
     }
-    const e_enum_names = cEnumNames(as_struct);
-    var total = e_enum_names.len;
-    // writer.print("c_enums {d}\n", .{e_enum_names.len}) catch unreachable;
-    const enum_prefx = "enum_";
-    for (e_enum_names) |name| {
-        const enum_name = name[enum_prefx.len..name.len];
+
+    cEnumsInfo(summ, valid_decl);
+}
+fn cEnumsInfo(info: *Raport, decls: []const Declaration) void {
+    const e_prefix = "enum_";
+    const e_count = countPrefix(decls, e_prefix);
+    const e_names = cEnumNames(decls, e_count);
+    info.addInfo("---- cenums ({d}) -----\n", .{e_count});
+    var enum_field_num = 0;
+    defer info.addInfo("---- total: {d}\n", .{enum_field_num});
+
+    var names: [128][]const u8 = undefined;
+    for (e_names) |name| {
+        const enum_name = name[e_prefix.len..name.len];
         var count = 0;
-        for (declarations) |decl| {
-            count += if (hasPrefix(decl.name, enum_name)) 1 else 0;
+        for (decls) |d| {
+            const decl_name = d.name;
+            if (hasPrefix(decl_name, enum_name)) {
+                names[count] = decl_name;
+                count += 1;
+            }
         }
-        total += count;
-        summ.addInfo(
-            "- {s} - {d}\n",
+        enum_field_num += count;
+        info.addInfo(
+            "- {s} - {d}: ",
             .{ enum_name, count },
         );
+        for (names[0..count]) |print_name| {
+            info.addInfo("{s}, ", .{print_name});
+        }
+        info.newLn("");
     }
-
-    summ.addInfo(
-        "- {d} - total\n",
-        .{total},
-    );
 }
 
 const Raport = struct {
