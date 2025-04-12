@@ -46,11 +46,16 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
 }
 
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
+
+    // player
     var p1 = player.Player.init();
+    defer p1.deinit();
+
     var chessboard = try chess.WobblyChessboard().init(alloc);
     defer chessboard.deinit();
     chessboard.board.debugInfo();
 
+    chessboard.oscInfo();
     chessboard.update(500);
     chessboard.oscInfo();
 
@@ -64,6 +69,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
 
     var total_s: f32 = 0;
 
+    // raylib
     const grad = comptime sh.shaderFiles("grad");
     const shader_gradient = try rl.loadShader(
         grad.vs,
@@ -96,6 +102,19 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     var osc_trio = Osc{ .freq = 0.75 };
     const osc_slice: []const *Osc = &.{ &osc_basic, &osc_duo, &osc_trio };
 
+    // editor
+    const E = player.EditorMemory;
+    var hmm: [@sizeOf(E.Tpy) * E.Slots]E.Tpy = undefined;
+    var editor = player.EditorMemory{
+        .placedObjects = hmm[0..],
+        .slot = 0,
+    };
+    editor.load();
+    defer editor.save() catch {
+        std.log.err("failed to save\n", .{});
+    };
+    // ---
+
     while (exiter.toContinue()) {
         const delta_ms = timeline.tickMs();
         p1.update(delta_ms);
@@ -117,17 +136,20 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             .touching => rl.Color.purple,
         };
 
+        // it starts 2D context,
         medium.begin();
+        rl.clearBackground(THEME[1]);
         defer {
-            // while in default 3D "layer" draw rest of ui
+            // draw ui at the end
             rl.drawText(text, 10, 10, 24, THEME[1]);
+            rl.drawText(p1.text[0..64], 10, 34, 24, THEME[1]);
             exiter.draw();
             medium.end();
         }
 
-        rl.clearBackground(THEME[1]);
+        // drawing 3d
+        rl.beginMode3D(p1.camera);
         {
-            rl.beginMode3D(p1.camera);
             defer rl.endMode3D();
             const base_size = 0.5;
             const osc_val = osc_slice[1].sample();
@@ -142,7 +164,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);
 
-            // parametric.repr(rl.Vector3.zero());
+            parametric.repr(rl.Vector3.zero());
             chessboard.board.repr();
         }
     }

@@ -29,6 +29,7 @@ void main()
     vec4 world_pos = fragColor+tex_col_mute;
     // imaginary clip plane on z axis at hi
     float slice_mask = 1 - step(0.23, world_pos.y);
+    if (slice_mask == 0) discard;
     
     // Calculate final fragment color
     finalColor = vec4(user_color.xyz, slice_mask);

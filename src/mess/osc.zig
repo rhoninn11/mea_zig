@@ -12,7 +12,7 @@ pub const Osc = struct {
         self.phase += delta_s * std.math.pi * 2;
     }
 
-    pub inline fn smple2D(self: Osc) vf2 {
+    pub inline fn sample2D(self: Osc) vf2 {
         const x: f32 = std.math.cos(self.phase) * self.amp;
         const y: f32 = std.math.sin(self.phase) * self.amp;
         return vf2{ x, y };

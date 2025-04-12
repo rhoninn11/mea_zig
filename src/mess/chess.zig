@@ -118,12 +118,14 @@ pub fn WobblyChessboard() type {
 
         board: BordType,
         sim: []Osc,
+        wobblyAmp: f32,
 
         pub fn init(alloc: Allocator) !Self {
             var prefab = Self{
                 .alloc = alloc,
                 .board = try BordType.init(alloc),
                 .sim = try alloc.alloc(Osc, BordType.chess_size.len),
+                .wobblyAmp = 0.33,
             };
 
             prefab.bootstrapSim();
@@ -132,9 +134,16 @@ pub fn WobblyChessboard() type {
 
         fn bootstrapSim(self: *Self) void {
             for (0..BordType.chess_size.len) |i| {
-                self.sim[i].phase = self.board.x_pos[i];
-                self.sim[i].freq = self.board.z_pos[i];
-                self.sim[i].amp = 1;
+                const x = self.board.x_pos[i];
+                const y = self.board.z_pos[i];
+                var total = rl.Vector2.init(x * 2, y * 2).length();
+                if (total >= 1.0) {
+                    total = 1;
+                }
+
+                self.sim[i].phase = total * 3.14 + 3.14 / 2.0;
+                self.sim[i].freq = 1;
+                self.sim[i].amp = self.wobblyAmp * (total);
             }
         }
 
@@ -148,9 +157,15 @@ pub fn WobblyChessboard() type {
             var aplied: [len]f32 = undefined;
             for (0..len) |i| {
                 self.sim[i].update(delta_ms);
-                aplied[i] = self.sim[i].sample();
+                aplied[i] = self.sim[i].sample() - 0.5;
             }
             @memcpy(self.board.y_pos, aplied[0..len]);
+        }
+
+        pub fn newLn8(i: usize) void {
+            if (@mod(i, 8) == 7) {
+                std.debug.print("\n", .{});
+            }
         }
 
         pub fn oscInfo(self: *Self) void {
@@ -161,6 +176,17 @@ pub fn WobblyChessboard() type {
                 const sample = oscs[i].sample();
                 oscs[i].log();
                 std.debug.print("osc: {d}, sampled: {d}\n", .{ ids[i], sample });
+            }
+            for (0..self.sim.len) |i| {
+                std.debug.print(" p {d: <4} ", .{self.sim[i].phase});
+                Self.newLn8(i);
+            }
+            std.debug.print("\n", .{});
+
+            for (0..self.board.y_pos.len) |i| {
+                const val = self.board.y_pos[i];
+                std.debug.print(" y {d: <4} ", .{val});
+                Self.newLn8(i);
             }
         }
     };

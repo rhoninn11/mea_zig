@@ -12,7 +12,8 @@ pub fn examineWegGPU() void {
     const webGPUHeader = @cImport({
         @cInclude("webgpu.h");
     });
-    const comptime_module_summary = comptime typeSummary(webGPUHeader);
+    const len = comptime summaryLen(webGPUHeader);
+    const comptime_module_summary = comptime typeSummary(webGPUHeader, len);
     // show at runtime
     std.debug.print("{s}\n", .{comptime_module_summary});
 
@@ -184,16 +185,6 @@ fn printDeclSummary(summ: *Raport, comptime basic: type) void {
 
     const valid_decl: []Declaration = decls_scrachpad[0..counted];
 
-    // var filterd_decls: [counted]Declaration = undefined;
-    // var idx: u32 = 0;
-    // for (declarations) |decl| {
-    //     const processed = Kind.fieldOf(basic, decl.name);
-    //     if (!hasPrefixV(decl.name, prefs) and processed != null) {
-    //         filterd_decls[idx] = decl;
-    //         idx += 1;
-    //     }
-    // }
-
     summ.addInfo(
         "+++ valid decls {d}/{d}\n",
         .{ counted, bin_num },
@@ -272,8 +263,8 @@ fn writeSummary(writer: std.io.AnyWriter, about: type) void {
     summ.newLn("");
 }
 
-fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
-    const len = comptime summaryLen(module);
+// i think its tripple the time of execution, maybe just set max
+fn typeSummary(comptime module: type, comptime len: u32) *const [len:0]u8 {
     comptime {
         var summary_buff: [len:0]u8 = undefined;
         var fbs = std.io.fixedBufferStream(&summary_buff);
@@ -286,9 +277,6 @@ fn typeSummary(comptime module: type) *const [summaryLen(module):0]u8 {
 
 pub fn comptimeExperiment() void {
     examineWegGPU();
-    // examineType();
-    // examineType(zigModule);
-    // examineType(generatedProtobuffer);
 }
 
 const fs = std.fs;
