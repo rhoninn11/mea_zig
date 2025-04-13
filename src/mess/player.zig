@@ -48,6 +48,13 @@ pub const EditorMemory = struct {
 };
 
 pub const Player = struct {
+    const JumpState = enum {
+        ground,
+        launching,
+        air,
+        landing,
+    };
+
     pos: rl.Vector3,
     camera: rl.Camera,
     colider: Sphere,
@@ -55,6 +62,11 @@ pub const Player = struct {
 
     text: [64:0]u8 = undefined,
     cursor: u8 = 0,
+
+    ground_level: f32 = 0,
+    jump_level: f32 = 0,
+    jump_state: JumpState = .ground,
+    jump_speed: f32 = 0,
 
     pub fn init() Player {
         var cam = view.cameraPersp();
@@ -82,17 +94,21 @@ pub const Player = struct {
         const awayV: math.fvec2 = @splat(away);
 
         self.osc.update(dt);
-        self.camera.target = rl.Vector3.zero();
         const xz = self.osc.sample2D() * awayV;
+
+        const zero = rl.Vector3.zero();
+        self.camera.target = zero;
         self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
 
+        self.pos = zero;
+        self.pos.y = self.jump_level;
         // self.camera.position
 
         // not yet implemented
         // unreachable;
     }
 
-    pub fn input(self: *Player) void {
+    inline fn textInput(self: *Player) void {
         while (true) {
             const code = rl.getCharPressed();
             if (code == 0) break;
@@ -116,17 +132,65 @@ pub const Player = struct {
         }
     }
 
-    pub fn update(self: *Player, dt: f32) void {
-        self.input();
-        const cam = &self.camera;
-        const ready = false;
-        switch (ready) {
-            true => self.customCameraUpdate(dt),
-            false => rl.updateCamera(cam, .third_person),
+    inline fn jumpInput(self: *Player) void {
+        const key = rl.KeyboardKey.space;
+
+        const jump_action = rl.isKeyPressed(key);
+        if (jump_action and self.jump_state == .ground) {
+            self.jump_state = .launching;
         }
-        const shared_pos = cam.target;
-        self.colider.pos = math.asRelVec3(shared_pos);
-        self.pos = shared_pos;
+    }
+
+    fn jumpSim(self: *Player, dt_ms: f32) void {
+        const dt_s = dt_ms * 0.001;
+        const acc = 10;
+        switch (self.jump_state) {
+            .launching => {
+                self.jump_state = .air;
+                self.jump_speed = 10;
+                std.log.debug("+++ launching", .{});
+            },
+            .air => {
+                self.jump_speed = self.jump_speed - acc * dt_s;
+            },
+            .landing => {
+                self.jump_state = .ground;
+                self.jump_speed = 0;
+                self.jump_level = self.ground_level;
+                std.log.debug("+++ landing", .{});
+            },
+            .ground => {},
+        }
+
+        switch (self.jump_state) {
+            .landing, .ground => return,
+            else => {},
+        }
+
+        self.jump_level += self.jump_speed * dt_s;
+        std.log.debug("+++ in air: {d: <4}\n", .{self.jump_level});
+        if (self.jump_level <= self.ground_level) {
+            self.jump_state = .landing;
+        }
+    }
+
+    pub fn update(self: *Player, dt: f32) void {
+        self.textInput();
+        self.jumpInput();
+        self.jumpSim(dt);
+        { // camera update
+            const cam = &self.camera;
+            const ready = true;
+            switch (ready) {
+                true => self.customCameraUpdate(dt),
+                false => {
+                    rl.updateCamera(cam, .third_person);
+                    self.pos = cam.target;
+                },
+            }
+        }
+        // colide update
+        self.colider.pos = math.asRelVec3(self.pos);
     }
 
     pub fn repr(self: *Player, color: rl.Color) void {

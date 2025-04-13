@@ -4,8 +4,7 @@ dev: zigBuildWeb jsWebLocal
 devDkr: zigBuildWeb jsWebHost
 
 	
-
-run:
+main:
 	zig build run --prefix fs
 
 build_app:

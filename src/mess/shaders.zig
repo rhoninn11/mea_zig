@@ -43,11 +43,14 @@ pub const Paramatric = struct {
 
     pub fn init() !Paramatric {
         const vsfs = shaderFiles("param");
+        const mesh = rl.genMeshKnot(1, 1, 32, 32);
+        const model = try rl.loadModelFromMesh(mesh);
+
         var prefab = Paramatric{
             .shader = try rl.loadShader(vsfs.vs, vsfs.fs),
-            .model = try rl.loadModel("assets/kostka.glb"),
+            .model = model,
         };
-        prefab.model.materials[1].shader = prefab.shader;
+        prefab.model.materials[0].shader = prefab.shader;
 
         const has_all = hasUniforms(prefab.shader, Paramatric.uniforms, true);
         dbg.bypassAssert(has_all, false);

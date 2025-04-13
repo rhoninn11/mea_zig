@@ -31,6 +31,23 @@ pub const Signal = struct {
     }
 };
 
+pub const KbSignal = struct {
+    rlkb: rl.KeyboardKey,
+    signal: Signal,
+
+    pub fn init(kb: rl.KeyboardKey) KbSignal {
+        return KbSignal{
+            .rlkb = kb,
+            .signal = Signal{},
+        };
+    }
+
+    pub fn check(self: *KbSignal) void {
+        self.signal.set(rl.isKeyPressed(self.rlkb));
+        return self.signal.get();
+    }
+};
+
 pub const SignalCode = struct {
     const Self = @This();
 

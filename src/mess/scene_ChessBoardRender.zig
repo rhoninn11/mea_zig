@@ -129,6 +129,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{text_value});
 
         t_on_axis = slideOnAxis(sh_axis, osc_slice[0].sample());
+        t_on_axis = t_on_axis.multiply(rl.Matrix.translate(0, 0, -4));
         rl.setShaderValueMatrix(parametric.shader, user_mat_loc, t_on_axis);
 
         const sColor = switch (sphere.sphereTachin(p1.colider, dynamic)) {
@@ -154,7 +155,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             const base_size = 0.5;
             const osc_val = osc_slice[1].sample();
             const osc_val2 = osc_slice[2].sample();
-            const pos = rl.Vector3.init(0, osc_val * 0.33, 0);
+            const pos = rl.Vector3.init(0, osc_val * 0.33, 4);
             rl.drawCube(pos, base_size, base_size * 0.33 + osc_val * 0.1, base_size, rl.Color.white);
             const pos_2 = pos.add(rl.Vector3.init(1, 0, 0));
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_val2 * 0.1, base_size, rl.Color.black);

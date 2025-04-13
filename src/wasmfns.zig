@@ -14,6 +14,10 @@ export fn callFromVm() void {
     consoleLog(consoleMsg.ptr, consoleMsg.len);
 }
 
+// TODO: czy jeste mi tu potrzebna współpraca z
+// TODO: std.os.emscripten?
+// TODO: std.wasm?
+
 export fn vmLog(ptr: [*]const u8, len: usize) void {
     var arena = std.heap.ArenaAllocator.init(wasm_alloc);
     const arena_a = arena.allocator();
@@ -26,13 +30,13 @@ export fn vmLog(ptr: [*]const u8, len: usize) void {
     consoleLog(progress_info.ptr, progress_info.len);
 
     // TODO: nead to crack proper allocation in wasm context
-    // const consoleMsg: []const u8 = "+++ what i should do about that, zigmunt said ->";
-    // const halo = std.fmt.allocPrint(arena_a, "{s} {s}", .{ consoleMsg, ptr[0..len] }) catch {
-    //     const error_info: []const u8 = "!!! alloc error\n";
-    //     consoleLog(error_info.ptr, error_info.len);
-    //     return;
-    // };
-    // consoleLog(halo.ptr, halo.len);
+    const consoleMsg: []const u8 = "+++ what i should do about that, zigmunt said ->";
+    const halo = std.fmt.allocPrint(arena_a, "{s} {s}", .{ consoleMsg, ptr[0..len] }) catch {
+        const error_info: []const u8 = "!!! alloc error\n";
+        consoleLog(error_info.ptr, error_info.len);
+        return;
+    };
+    consoleLog(halo.ptr, halo.len);
 
     const recording_info = "+++ now audio experiments";
     consoleLog(recording_info.ptr, recording_info.len);
