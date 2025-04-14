@@ -30,7 +30,12 @@ void main()
     // imaginary clip plane on z axis at hi
     float slice_mask = 1 - step(0.23, world_pos.y);
     if (slice_mask == 0) discard;
+
+    vec4 end_color = user_color;
+    if (!gl_FrontFacing) {
+        end_color = vec4(vec3(0), 0);
+    }
     
     // Calculate final fragment color
-    finalColor = vec4(user_color.xyz, slice_mask);
+    finalColor = vec4(end_color.xyz, slice_mask);
 }

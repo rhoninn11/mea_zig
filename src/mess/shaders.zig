@@ -43,8 +43,9 @@ pub const Paramatric = struct {
 
     pub fn init() !Paramatric {
         const vsfs = shaderFiles("param");
-        const mesh = rl.genMeshKnot(1, 1, 32, 32);
+        const mesh = rl.genMeshKnot(1, 1, 16, 64);
         const model = try rl.loadModelFromMesh(mesh);
+        // _ = rl.exportMesh(mesh, "fs/mesh.obj");
 
         var prefab = Paramatric{
             .shader = try rl.loadShader(vsfs.vs, vsfs.fs),
@@ -64,6 +65,8 @@ pub const Paramatric = struct {
     }
 
     pub fn repr(self: *const Paramatric, root: rl.Vector3) void {
+        rl.gl.rlDisableBackfaceCulling();
+        defer rl.gl.rlEnableBackfaceCulling();
         rl.drawModel(self.model, root, 1, rl.Color.blue);
     }
 };

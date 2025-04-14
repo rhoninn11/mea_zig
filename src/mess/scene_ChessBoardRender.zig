@@ -59,6 +59,9 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     chessboard.update(500);
     chessboard.oscInfo();
 
+    var navig_board = try chess.NavigationBoard().init(alloc);
+    defer navig_board.deinit();
+
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);
 
@@ -91,7 +94,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     const red: @Vector(4, f32) = .{ 1, 0, 0, 0 };
     const mat_iden = rl.Matrix.identity();
 
-    const sh_axis: @Vector(3, f32) = .{ 1, 0, 0 };
+    const sh_axis: @Vector(3, f32) = .{ 0, 1, 0 };
     var t_on_axis = slideOnAxis(sh_axis, 1);
 
     rl.setShaderValue(parametric.shader, user_color, &red, .vec4);
@@ -167,6 +170,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
 
             parametric.repr(rl.Vector3.zero());
             chessboard.board.repr();
+            // navig_board.repr();
         }
     }
 }

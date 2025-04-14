@@ -21,6 +21,10 @@ const Size2D = struct {
     }
 };
 
+// OH wait... We could extract Board from chess board
+// Player could move on a borad, but not just on chess board
+// it could be also other type of boards and player could move
+// along its fields
 pub fn Chessboard(_x: u32, _y: u32) type {
     return struct {
         const Self = @This();
@@ -88,9 +92,10 @@ pub fn Chessboard(_x: u32, _y: u32) type {
         }
 
         pub fn repr(self: Self) void {
+            const brd_size = Self.chess_size;
             for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, y, z, c| {
                 var pos = rl.Vector3.init(x, y, z);
-                pos = pos.multiply(rl.Vector3.init(8, 1, 8));
+                pos = pos.multiply(rl.Vector3.init(brd_size.x_dim, 1, brd_size.z_dim));
                 const size = rl.Vector3.init(1, 0.33, 1);
                 rl.drawCubeWiresV(pos, size, c);
             }
@@ -108,6 +113,12 @@ pub fn Chessboard(_x: u32, _y: u32) type {
 }
 
 const Osc = @import("osc.zig").Osc;
+
+fn newLn8(i: usize) void {
+    if (@mod(i, 8) == 7) {
+        std.debug.print("\n", .{});
+    }
+}
 
 pub fn WobblyChessboard() type {
     const BordType = Chessboard(8, 8);
@@ -162,12 +173,6 @@ pub fn WobblyChessboard() type {
             @memcpy(self.board.y_pos, aplied[0..len]);
         }
 
-        pub fn newLn8(i: usize) void {
-            if (@mod(i, 8) == 7) {
-                std.debug.print("\n", .{});
-            }
-        }
-
         pub fn oscInfo(self: *Self) void {
             const size = BordType.chess_size;
             const ids: []const u32 = &.{ 0, size.x_dim };
@@ -179,15 +184,40 @@ pub fn WobblyChessboard() type {
             }
             for (0..self.sim.len) |i| {
                 std.debug.print(" p {d: <4} ", .{self.sim[i].phase});
-                Self.newLn8(i);
+                newLn8(i);
             }
             std.debug.print("\n", .{});
 
             for (0..self.board.y_pos.len) |i| {
                 const val = self.board.y_pos[i];
                 std.debug.print(" y {d: <4} ", .{val});
-                Self.newLn8(i);
+                newLn8(i);
             }
+        }
+    };
+}
+
+pub fn NavigationBoard() type {
+    const BoardBase = Chessboard(16, 16);
+
+    return struct {
+        const Self = @This();
+        board: BoardBase,
+        alloc: Allocator,
+
+        pub fn init(alloc: Allocator) !Self {
+            return Self{
+                .alloc = alloc,
+                .board = try BoardBase.init(alloc),
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.board.deinit();
+        }
+
+        pub fn repr(self: *Self) void {
+            self.board.repr();
         }
     };
 }
