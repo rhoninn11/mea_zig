@@ -21,49 +21,100 @@ const Size2D = struct {
     }
 };
 
+pub fn Board(x_dim: u8, z_dim: u8) type {
+    const b_size = Size2D.init(x_dim, z_dim);
+    return struct {
+        const Self = @This();
+        pub const Sz: Size2D = b_size;
+
+        alloc: Allocator,
+
+        x_v: []f32,
+        y_v: []f32,
+        z_v: []f32,
+        level: f32 = -0.5,
+
+        pub fn init(a: Allocator) !Self {
+            const n = Self.Sz.len;
+            var prefab = Self{
+                .alloc = a,
+                .x_v = try a.alloc(f32, n),
+                .y_v = try a.alloc(f32, n),
+                .z_v = try a.alloc(f32, n),
+            };
+            prefab.initPos();
+            return prefab;
+        }
+
+        pub fn deinit(self: *Self) void {
+            const slices = [3][]f32{ self.x_v, self.y_v, self.z_v };
+            for (slices) |s| {
+                self.alloc.free(s);
+            }
+        }
+
+        fn initPos(self: *Self) void {
+            const sz = Self.Sz;
+            for (0..sz.len) |x_idx|
+                self.x_v[x_idx] = @floatFromInt(@mod(x_idx, sz.x_dim));
+
+            const dz = sz.z_dim;
+            for (0..sz.z_dim) |z_idx| {
+                const row_start = z_idx * dz;
+                const row_value: f32 = @floatFromInt(z_idx);
+                const row_memory = self.z_v[row_start .. row_start + dz];
+                @memset(row_memory, row_value);
+            }
+
+            @memset(self.y_v, self.level);
+
+            math.center(self.x_v);
+            math.center(self.z_v);
+        }
+
+        pub fn debugInfo(self: *const Self) void {
+            const x_mm = math.minMax(self.x_v);
+            const y_mm = math.minMax(self.y_v);
+            const z_mm = math.minMax(self.z_v);
+            std.debug.print("+++ X {d} {d}\n", .{ x_mm[0], x_mm[1] });
+            std.debug.print("+++ Y {d} {d}\n", .{ y_mm[0], y_mm[1] });
+            std.debug.print("+++ Z {d} {d}\n", .{ z_mm[0], z_mm[1] });
+        }
+    };
+}
+
 // OH wait... We could extract Board from chess board
 // Player could move on a borad, but not just on chess board
 // it could be also other type of boards and player could move
 // along its fields
 pub fn Chessboard(_x: u32, _y: u32) type {
+    const chess_size = Size2D.init(_x, _y);
+    const BoardTpy = Board(_x, _y);
     return struct {
         const Self = @This();
-        pub const chess_size = Size2D.init(_x, _y);
+        pub const Sz = chess_size;
         alloc: Allocator,
-        x_pos: []f32,
-        y_pos: []f32,
-        z_pos: []f32,
-        surface_level: f32 = -0.5,
+        board: BoardTpy,
         col: []rl.Color,
 
-        pub fn deinit(self: Self) void {
-            const alloc = self.alloc;
-            alloc.free(self.x_pos);
-            alloc.free(self.y_pos);
-            alloc.free(self.z_pos);
-            alloc.free(self.col);
+        pub fn init(a: Allocator) !Self {
+            const n = Self.Sz.len;
+            var prefab = Self{
+                .alloc = a,
+                .board = try BoardTpy.init(a),
+                .col = try a.alloc(rl.Color, n),
+            };
+            prefab.calcColor();
+            return prefab;
         }
 
-        fn calcPos(self: *Self, size: Size2D) void {
-            const x_pos = self.x_pos;
-            @memset(x_pos, 3);
-            for (0..size.len) |x|
-                x_pos[x] = @floatFromInt(@mod(x, 8));
-
-            const y_pos = self.z_pos;
-            for (0..size.z_dim) |z| {
-                const row_idx = z * size.z_dim;
-                const row_value: f32 = @floatFromInt(z);
-                const row_memory = y_pos[row_idx .. row_idx + size.x_dim];
-                @memset(row_memory, row_value);
-            }
-            @memset(self.y_pos, self.surface_level);
-
-            math.center(self.x_pos);
-            math.center(self.z_pos);
+        pub fn deinit(self: *Self) void {
+            self.alloc.free(self.col);
+            self.board.deinit();
         }
 
-        fn calcColor(self: *Self, size: Size2D) void {
+        fn calcColor(self: *Self) void {
+            const size = Self.Sz;
             for (0..size.len) |i| {
                 const odd_row = @divTrunc(i, size.x_dim);
                 const row_flip = @mod(odd_row, 2);
@@ -75,39 +126,15 @@ pub fn Chessboard(_x: u32, _y: u32) type {
             }
         }
 
-        pub fn init(alloc: Allocator) !Self {
-            const n = Self.chess_size.len;
-            var state = Self{
-                .alloc = alloc,
-                .x_pos = try alloc.alloc(f32, n),
-                .y_pos = try alloc.alloc(f32, n),
-                .z_pos = try alloc.alloc(f32, n),
-                .col = try alloc.alloc(rl.Color, n),
-            };
-
-            state.calcPos(Self.chess_size);
-            state.calcColor(Self.chess_size);
-
-            return state;
-        }
-
-        pub fn repr(self: Self) void {
-            const brd_size = Self.chess_size;
-            for (self.x_pos, self.y_pos, self.z_pos, self.col) |x, y, z, c| {
+        pub fn repr(self: *Self) void {
+            const size = Self.Sz;
+            const b: *BoardTpy = &self.board;
+            for (b.x_v, b.y_v, b.z_v, self.col) |x, y, z, c| {
                 var pos = rl.Vector3.init(x, y, z);
-                pos = pos.multiply(rl.Vector3.init(brd_size.x_dim, 1, brd_size.z_dim));
-                const size = rl.Vector3.init(1, 0.33, 1);
-                rl.drawCubeWiresV(pos, size, c);
+                pos = pos.multiply(rl.Vector3.init(size.x_dim, 1, size.z_dim));
+                const cube_size = rl.Vector3.init(1, 0.33, 1);
+                rl.drawCubeWiresV(pos, cube_size, c);
             }
-        }
-
-        pub fn debugInfo(self: *const Self) void {
-            const x_mm = math.minMax(self.x_pos);
-            const y_mm = math.minMax(self.y_pos);
-            const z_mm = math.minMax(self.z_pos);
-            std.debug.print("+++ X {d} {d}\n", .{ x_mm[0], x_mm[1] });
-            std.debug.print("+++ Y {d} {d}\n", .{ y_mm[0], y_mm[1] });
-            std.debug.print("+++ Z {d} {d}\n", .{ z_mm[0], z_mm[1] });
         }
     };
 }
@@ -121,21 +148,21 @@ fn newLn8(i: usize) void {
 }
 
 pub fn WobblyChessboard() type {
-    const BordType = Chessboard(8, 8);
+    const BoardTpy = Chessboard(8, 8);
 
     return struct {
         const Self = @This();
         alloc: Allocator,
 
-        board: BordType,
+        board: BoardTpy,
         sim: []Osc,
         wobblyAmp: f32,
 
         pub fn init(alloc: Allocator) !Self {
             var prefab = Self{
                 .alloc = alloc,
-                .board = try BordType.init(alloc),
-                .sim = try alloc.alloc(Osc, BordType.chess_size.len),
+                .board = try BoardTpy.init(alloc),
+                .sim = try alloc.alloc(Osc, BoardTpy.Sz.len),
                 .wobblyAmp = 0.33,
             };
 
@@ -144,9 +171,10 @@ pub fn WobblyChessboard() type {
         }
 
         fn bootstrapSim(self: *Self) void {
-            for (0..BordType.chess_size.len) |i| {
-                const x = self.board.x_pos[i];
-                const y = self.board.z_pos[i];
+            const brd = &self.board.board;
+            for (0..BoardTpy.Sz.len) |i| {
+                const x = brd.x_v[i];
+                const y = brd.z_v[i];
                 var total = rl.Vector2.init(x * 2, y * 2).length();
                 if (total >= 1.0) {
                     total = 1;
@@ -164,33 +192,26 @@ pub fn WobblyChessboard() type {
         }
 
         pub fn update(self: *Self, delta_ms: f32) void {
-            const len = BordType.chess_size.len;
+            const len = BoardTpy.Sz.len;
+            const brd = &self.board.board;
             var aplied: [len]f32 = undefined;
             for (0..len) |i| {
                 self.sim[i].update(delta_ms);
                 aplied[i] = self.sim[i].sample() - 0.5;
             }
-            @memcpy(self.board.y_pos, aplied[0..len]);
+            @memcpy(brd.y_v, aplied[0..len]);
         }
 
         pub fn oscInfo(self: *Self) void {
-            const size = BordType.chess_size;
-            const ids: []const u32 = &.{ 0, size.x_dim };
-            var oscs = [_]Osc{ self.sim[0], self.sim[size.x_dim] };
-            for (0..oscs.len) |i| {
-                const sample = oscs[i].sample();
-                oscs[i].log();
-                std.debug.print("osc: {d}, sampled: {d}\n", .{ ids[i], sample });
-            }
-            for (0..self.sim.len) |i| {
-                std.debug.print(" p {d: <4} ", .{self.sim[i].phase});
+            const size = BoardTpy.Sz;
+            const osc_v = self.sim;
+            for (0..size.len) |i| {
+                std.debug.print(" p {d: <4} ", .{osc_v[i].phase});
                 newLn8(i);
             }
             std.debug.print("\n", .{});
-
-            for (0..self.board.y_pos.len) |i| {
-                const val = self.board.y_pos[i];
-                std.debug.print(" y {d: <4} ", .{val});
+            for (0..size.len) |i| {
+                std.debug.print(" y {d: <4} ", .{osc_v[i].sample()});
                 newLn8(i);
             }
         }
