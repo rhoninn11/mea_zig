@@ -53,7 +53,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
 
     var chessboard = try chess.WobblyChessboard().init(alloc);
     defer chessboard.deinit();
-    chessboard.board.debugInfo();
+    chessboard.board.board.debugInfo();
 
     chessboard.oscInfo();
     chessboard.update(500);
