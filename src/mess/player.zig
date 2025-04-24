@@ -68,6 +68,8 @@ pub const Player = struct {
     jump_state: JumpState = .ground,
     jump_speed: f32 = 0,
 
+    move_dir: rl.Vector3,
+
     pub fn init() Player {
         var cam = view.cameraPersp();
         rl.updateCamera(&cam, .third_person);
@@ -78,6 +80,7 @@ pub const Player = struct {
                 .pos = math.asRelVec3(cam.target),
                 .size = 0.3,
             },
+            .move_dir = rl.Vector3.zero(),
         };
         @memset(p.text[0..p.text.len], 0);
         return p;
@@ -87,28 +90,8 @@ pub const Player = struct {
         std.debug.print("for now player dont need to deinit but it w8:D\n", .{});
         _ = self;
     }
-    pub fn customCameraUpdate(self: *Player, dt: f32) void {
-        const hight: f32 = 5;
-        const away: f32 = 7;
-        self.osc.freq = 0.2 / (away);
-        const awayV: math.fvec2 = @splat(away);
 
-        self.osc.update(dt);
-        const xz = self.osc.sample2D() * awayV;
-
-        const zero = rl.Vector3.zero();
-        self.camera.target = zero;
-        self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
-
-        self.pos = zero;
-        self.pos.y = self.jump_level;
-        // self.camera.position
-
-        // not yet implemented
-        // unreachable;
-    }
-
-    inline fn textInput(self: *Player) void {
+    inline fn inputText(self: *Player) void {
         while (true) {
             const code = rl.getCharPressed();
             if (code == 0) break;
@@ -132,16 +115,62 @@ pub const Player = struct {
         }
     }
 
-    inline fn jumpInput(self: *Player) void {
-        const key = rl.KeyboardKey.space;
-
-        const jump_action = rl.isKeyPressed(key);
+    inline fn inputJump(self: *Player) void {
+        const jumpKey = rl.KeyboardKey.space;
+        const jump_action = rl.isKeyPressed(jumpKey);
         if (jump_action and self.jump_state == .ground) {
             self.jump_state = .launching;
         }
     }
 
-    fn jumpSim(self: *Player, dt_ms: f32) void {
+    inline fn inputMove(self: *Player) void {
+        const front = rl.Vector3.init(1, 0, 0);
+        const right = rl.Vector3.init(0, 0, 1);
+        const move_key_v = [_]rl.KeyboardKey{
+            rl.KeyboardKey.w,
+            rl.KeyboardKey.s,
+            rl.KeyboardKey.a,
+            rl.KeyboardKey.d,
+        };
+        const move_dir_v = [_]rl.Vector3{
+            front,
+            front.scale(-1),
+            right.scale(-1),
+            right,
+        };
+
+        var is_moving = false;
+        var move_dir: rl.Vector3 = rl.Vector3.zero();
+        for (move_dir_v, move_key_v) |dir, key| {
+            if (rl.isKeyDown(key)) {
+                is_moving = true;
+                move_dir = dir;
+                std.debug.print("move prepared with {s}\n", .{@tagName(key)});
+            }
+        }
+
+        self.move_dir = if (is_moving) move_dir else rl.Vector3.zero();
+    }
+
+    inline fn moveCamera(self: *Player, dt: f32) void {
+        const hight: f32 = 5;
+        const away: f32 = 7;
+        self.osc.freq = 0.2 / (away);
+        const awayV: math.fvec2 = @splat(away);
+
+        self.osc.update(dt);
+        const xz = self.osc.sample2D() * awayV;
+
+        const zero = rl.Vector3.zero();
+        self.camera.target = zero;
+        self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
+    }
+
+    inline fn moveSpatial(self: *Player) void {
+        self.pos = self.move_dir;
+        self.pos.y = self.jump_level;
+    }
+    fn simJump(self: *Player, dt_ms: f32) void {
         const dt_s = dt_ms * 0.001;
         const acc = 10;
         switch (self.jump_state) {
@@ -163,32 +192,30 @@ pub const Player = struct {
         }
 
         switch (self.jump_state) {
-            .landing, .ground => return,
+            .air => {
+                self.jump_level += self.jump_speed * dt_s;
+                std.log.debug("+++ in air: {d: <4}\n", .{self.jump_level});
+                if (self.jump_level <= self.ground_level) {
+                    self.jump_state = .landing;
+                }
+            },
             else => {},
-        }
-
-        self.jump_level += self.jump_speed * dt_s;
-        std.log.debug("+++ in air: {d: <4}\n", .{self.jump_level});
-        if (self.jump_level <= self.ground_level) {
-            self.jump_state = .landing;
         }
     }
 
     pub fn update(self: *Player, dt: f32) void {
-        self.textInput();
-        self.jumpInput();
-        self.jumpSim(dt);
-        { // camera update
-            const cam = &self.camera;
-            const ready = true;
-            switch (ready) {
-                true => self.customCameraUpdate(dt),
-                false => {
-                    rl.updateCamera(cam, .third_person);
-                    self.pos = cam.target;
-                },
-            }
-        }
+        self.inputText();
+        self.inputJump();
+        self.inputMove();
+        self.simJump(dt);
+        self.moveCamera(dt);
+        self.moveSpatial();
+
+        // ##### pre camera manipulation
+        // const cam = &self.camera;
+        // rl.updateCamera(cam, .third_person);
+        // self.pos = cam.target;
+
         // colide update
         self.colider.pos = math.asRelVec3(self.pos);
     }
@@ -203,4 +230,6 @@ pub const Player = struct {
     //       może trochę zależy też co symulują, ale zazwyczaj starają się
     //       przedstawić jakieś zjawiska, a czy gracz też mógłby być symulowany
     //       //
+
+    pub fn moveInput() void {}
 };
