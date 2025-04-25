@@ -68,7 +68,7 @@ pub const Player = struct {
     jump_state: JumpState = .ground,
     jump_speed: f32 = 0,
 
-    move_dir: rl.Vector3,
+    move_dir: Move,
 
     pub fn init() Player {
         var cam = view.cameraPersp();
@@ -80,7 +80,7 @@ pub const Player = struct {
                 .pos = math.asRelVec3(cam.target),
                 .size = 0.3,
             },
-            .move_dir = rl.Vector3.zero(),
+            .move_dir = Move.no_move,
         };
         @memset(p.text[0..p.text.len], 0);
         return p;
@@ -123,33 +123,46 @@ pub const Player = struct {
         }
     }
 
-    inline fn inputMove(self: *Player) void {
-        const front = rl.Vector3.init(1, 0, 0);
-        const right = rl.Vector3.init(0, 0, 1);
-        const move_key_v = [_]rl.KeyboardKey{
-            rl.KeyboardKey.w,
-            rl.KeyboardKey.s,
-            rl.KeyboardKey.a,
-            rl.KeyboardKey.d,
-        };
-        const move_dir_v = [_]rl.Vector3{
-            front,
-            front.scale(-1),
-            right.scale(-1),
-            right,
-        };
+    const Move = enum {
+        up,
+        down,
+        left,
+        right,
+        no_move,
 
-        var is_moving = false;
-        var move_dir: rl.Vector3 = rl.Vector3.zero();
-        for (move_dir_v, move_key_v) |dir, key| {
-            if (rl.isKeyDown(key)) {
-                is_moving = true;
-                move_dir = dir;
-                std.debug.print("move prepared with {s}\n", .{@tagName(key)});
+        fn vec(self: Move) rl.Vector3 {
+            const z_ax = rl.Vector3.init(0, 0, 1);
+            const x_ax = rl.Vector3.init(1, 0, 0);
+            const zero = rl.Vector3.zero();
+            return switch (self) {
+                .up => z_ax,
+                .down => z_ax.scale(-1),
+                .left => x_ax.scale(-1),
+                .right => x_ax,
+                .no_move => zero,
+            };
+        }
+    };
+
+    const MoveSet = struct {
+        key: rl.KeyboardKey,
+        move: Move,
+    };
+
+    inline fn inputMove(self: *Player) void {
+        var move_dir: Move = .no_move;
+        const move_set_v: []const MoveSet = &[_]MoveSet{
+            MoveSet{ .key = rl.KeyboardKey.w, .move = Move.up },
+            MoveSet{ .key = rl.KeyboardKey.s, .move = Move.down },
+            MoveSet{ .key = rl.KeyboardKey.a, .move = Move.left },
+            MoveSet{ .key = rl.KeyboardKey.d, .move = Move.right },
+        };
+        for (move_set_v) |move| {
+            if (rl.isKeyDown(move.key)) {
+                move_dir = move.move;
             }
         }
-
-        self.move_dir = if (is_moving) move_dir else rl.Vector3.zero();
+        self.move_dir = move_dir;
     }
 
     inline fn moveCamera(self: *Player, dt: f32) void {
@@ -167,8 +180,9 @@ pub const Player = struct {
     }
 
     inline fn moveSpatial(self: *Player) void {
-        self.pos = self.move_dir;
+        self.pos = Move.vec(self.move_dir);
         self.pos.y = self.jump_level;
+        // how now i have connection with board i could move on its fields
     }
     fn simJump(self: *Player, dt_ms: f32) void {
         const dt_s = dt_ms * 0.001;
@@ -228,7 +242,7 @@ pub const Player = struct {
     //       Adding moves like jump or camera paninng with mouse
     // TODO: czym są symulacje... to programy, które żyją własnym życiem?
     //       może trochę zależy też co symulują, ale zazwyczaj starają się
-    //       przedstawić jakieś zjawiska, a czy gracz też mógłby być symulowany
+    //       przedstawić jakieś zjawiska, a czy gracz też mógłby być symulowany?
     //       //
 
     pub fn moveInput() void {}
