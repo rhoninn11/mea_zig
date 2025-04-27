@@ -98,7 +98,7 @@ pub fn program(aloc: *const AppMemory) void {
 fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
     _ = alloc;
 
-    var exit = Exiter.spawn(win.corner, rl.KeyboardKey.key_escape);
+    var exit = Exiter.spawn(win.corner, rl.KeyboardKey.escape);
     exit.selfReference();
 
     var timeline = try Timeline.init();
@@ -140,21 +140,20 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
 
     var life_time_ms: f64 = 0;
 
-    var inertia_start = Iner.spawn(lin_spc.a);
-    var inertia_end = Iner.spawn(lin_spc.b);
-    var pointer_inert = Iner.spawn(.{ 0, 0 });
+    var inertia_start = Iner.init(lin_spc.a);
+    var inertia_end = Iner.init(lin_spc.b);
+    var pointer_inert = Iner.init(.{ 0, 0 });
 
-    var phx = PhysInprint{};
-    phx.reecalc();
-    var pointer_phx = PhysInprint.new(5, 0.33, 1);
+    const phx = PhysInprint.default();
+    const pointer_phx = PhysInprint.new(5, 0.33, 1);
 
     const inerts = &[_]*Iner{
         &inertia_start,
         &inertia_end,
         &pointer_inert,
     };
-    for (inerts) |singl_one| singl_one.phx = &phx;
-    pointer_inert.phx = &pointer_phx;
+    for (inerts) |singl_one| singl_one.phx = phx;
+    pointer_inert.phx = pointer_phx;
 
     const info_template: []const u8 = "Congrats! You created your first window! Frame time {d:.3} ms\n";
     var fmt_memory: [1024]u8 = undefined;
@@ -171,13 +170,19 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         pointer_inert.setTarget(mouse_pose);
 
         for (&letter_keys) |*key_from_kb| key_from_kb.collectiInput();
-        for (&skill_keys) |*skill_key| skill_key.collectiInput();
+        for (&skill_keys, 0..) |*skill_key, i| {
+            // std.debug.print("{d} {s}\n", .{ i, @tagName(skill_key.*.key) });
+            _ = i;
+            skill_key.collectiInput();
+        }
         exit.collectInput();
 
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
         if (skill_signals[0].get()) inerts[sldr.pos].setTarget(mouse_pose);
 
-        for (inerts) |inertia_point| inertia_point.simulate(delta_ms);
+        for (inerts) |inertia_point| {
+            inertia_point.simulate(delta_ms);
+        }
         lin_spc.a = inerts[0].getPos();
         lin_spc.b = inerts[1].getPos();
 

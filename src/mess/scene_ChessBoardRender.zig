@@ -163,7 +163,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             const pos_2 = pos.add(rl.Vector3.init(1, 0, 0));
             rl.drawCube(pos_2, base_size, base_size * 0.33 + osc_val2 * 0.1, base_size, rl.Color.black);
 
-            const dyn_pos = math.fvec3Rl(dynamic.pos);
+            const dyn_pos = math.asRlvec3(dynamic.pos);
             p1.repr(sColor);
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);

@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const math = @import("math.zig");
 const view = @import("view.zig");
 const collision = @import("sphere.zig");
+const phys = @import("../mods/phys.zig");
 
 const Osc = @import("osc.zig").Osc;
 const Sphere = collision.Sphere;
@@ -47,6 +48,11 @@ pub const EditorMemory = struct {
     }
 };
 
+const Rlvec3 = rl.Vector3;
+
+const p = phys.InertiaPack(math.fvec3);
+const Cfg = p.InertiaCfg;
+const Inertia = p.Inertia;
 pub const Player = struct {
     const JumpState = enum {
         ground,
@@ -68,22 +74,27 @@ pub const Player = struct {
     jump_state: JumpState = .ground,
     jump_speed: f32 = 0,
 
-    move_dir: Move,
+    spatial_dir: Move = Move.no_move,
+    cam_target: Rlvec3 = Rlvec3{ .x = 0, .y = 0, .z = 0 },
+    cam_inert: Inertia = Inertia{
+        .x = @splat(0),
+        .y = @splat(0),
+        .phx = Cfg.default(),
+    },
 
     pub fn init() Player {
         var cam = view.cameraPersp();
         rl.updateCamera(&cam, .third_person);
-        var p = Player{
+        var p1 = Player{
             .camera = cam,
             .pos = cam.target,
             .colider = Sphere{
-                .pos = math.asRelVec3(cam.target),
+                .pos = math.asFvec3(cam.target),
                 .size = 0.3,
             },
-            .move_dir = Move.no_move,
         };
-        @memset(p.text[0..p.text.len], 0);
-        return p;
+        @memset(p1.text[0..p1.text.len], 0);
+        return p1;
     }
 
     pub fn deinit(self: *Player) void {
@@ -150,7 +161,7 @@ pub const Player = struct {
     };
 
     inline fn inputMove(self: *Player) void {
-        var move_dir: Move = .no_move;
+        var direction: Move = .no_move;
         const move_set_v: []const MoveSet = &[_]MoveSet{
             MoveSet{ .key = rl.KeyboardKey.w, .move = Move.up },
             MoveSet{ .key = rl.KeyboardKey.s, .move = Move.down },
@@ -159,31 +170,36 @@ pub const Player = struct {
         };
         for (move_set_v) |move| {
             if (rl.isKeyDown(move.key)) {
-                move_dir = move.move;
+                direction = move.move;
             }
         }
-        self.move_dir = move_dir;
+        self.spatial_dir = direction;
     }
 
     inline fn moveCamera(self: *Player, dt: f32) void {
-        const hight: f32 = 5;
-        const away: f32 = 7;
+        const hight: f32 = 3.51;
+        const away: f32 = 9;
         self.osc.freq = 0.2 / (away);
         const awayV: math.fvec2 = @splat(away);
 
         self.osc.update(dt);
         const xz = self.osc.sample2D() * awayV;
 
-        const zero = rl.Vector3.zero();
-        self.camera.target = zero;
+        // const zero = rl.Vector3.zero();
+        self.camera.target = self.cam_target;
         self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
     }
 
     inline fn moveSpatial(self: *Player) void {
-        self.pos = Move.vec(self.move_dir);
+        self.pos = Move.vec(self.spatial_dir);
         self.pos.y = self.jump_level;
+        const v_pos = math.asFvec3(self.pos);
+        self.cam_inert.setTarget(v_pos);
+        const v_targ = math.asRlvec3(self.cam_inert.getPos());
+        self.cam_target = v_targ;
         // how now i have connection with board i could move on its fields
     }
+
     fn simJump(self: *Player, dt_ms: f32) void {
         const dt_s = dt_ms * 0.001;
         const acc = 10;
@@ -222,6 +238,7 @@ pub const Player = struct {
         self.inputJump();
         self.inputMove();
         self.simJump(dt);
+        self.cam_inert.simulate(dt);
         self.moveCamera(dt);
         self.moveSpatial();
 
@@ -231,7 +248,7 @@ pub const Player = struct {
         // self.pos = cam.target;
 
         // colide update
-        self.colider.pos = math.asRelVec3(self.pos);
+        self.colider.pos = math.asFvec3(self.pos);
     }
 
     pub fn repr(self: *Player, color: rl.Color) void {

@@ -34,7 +34,7 @@ pub const Circle = struct {
     }
 
     pub fn draw(self: Self, osc: Osc) void {
-        const osc_pos = osc.smple2D() * fv2{ 2.22, 2 };
+        const osc_pos = osc.sample2D() * fv2{ 2.22, 2 };
 
         const circle_pos_f = self.posf + osc_pos;
         var shadow_pos = self.posf + osc_pos * math.axisX;

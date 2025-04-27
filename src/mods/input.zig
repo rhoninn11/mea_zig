@@ -43,6 +43,9 @@ pub const KbSignal = struct {
     }
 
     pub fn check(self: *KbSignal) void {
+        if (rl.isKeyPressed(self.rlkb)) {
+            std.debug.print("hhm {s}\n", .{@tagName(self.rlkbaa)});
+        }
         self.signal.set(rl.isKeyPressed(self.rlkb));
         return self.signal.get();
     }
@@ -80,7 +83,8 @@ pub const KbKey = struct {
     }
 
     pub fn collectiInput(self: *Self) void {
-        self.hold.base.set(rl.isKeyDown(self.key));
+        const is_down = rl.isKeyDown(self.key);
+        self.hold.base.set(is_down);
     }
 
     pub fn update(self: *Self, delta_ms: f32) void {
@@ -150,16 +154,16 @@ pub fn charKeyArray(chars: []const u8, comptime len: usize) [len]rl.KeyboardKey 
 }
 
 pub fn charKey(char: u8) rl.KeyboardKey {
-    const e_fields = @typeInfo(rl.KeyboardKey).Enum.fields;
-    const match_chunk: []const u8 = &.{ '_', char };
-    var result: rl.KeyboardKey = undefined;
-    inline for (e_fields) |field| {
-        const f_name = field.name;
-        if (std.mem.indexOf(u8, f_name, match_chunk)) |idx| {
-            if (idx + 2 == f_name.len) result = @field(rl.KeyboardKey, f_name);
+    const rl_keys = @typeInfo(rl.KeyboardKey).Enum.fields;
+    const comp_slice: []const u8 = &.{char};
+    inline for (rl_keys) |field| {
+        const k_name = field.name;
+        if (std.mem.eql(u8, k_name, comp_slice)) {
+            return @field(rl.KeyboardKey, k_name);
         }
     }
-    return result;
+
+    return undefined;
 }
 
 test "comptime find keys" {
