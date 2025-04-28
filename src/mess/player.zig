@@ -5,6 +5,7 @@ const view = @import("view.zig");
 const collision = @import("sphere.zig");
 const phys = @import("../mods/phys.zig");
 
+const boards = @import("boards.zig");
 const Osc = @import("osc.zig").Osc;
 const Sphere = collision.Sphere;
 
@@ -49,11 +50,37 @@ pub const EditorMemory = struct {
 };
 
 const Rlvec3 = rl.Vector3;
-
 const p = phys.InertiaPack(math.fvec3);
 const Cfg = p.InertiaCfg;
 const Inertia = p.Inertia;
+const Allocator = std.mem.Allocator;
+
+pub const World = boards.NavigationBoard();
 pub const Player = struct {
+    const Move = enum {
+        up,
+        down,
+        left,
+        right,
+        no_move,
+
+        fn vec(self: Move) rl.Vector3 {
+            // TODO Doszedłem do takiego wniosku, że dobrze by było zmieniać kierunek wraz z obrotem kamery
+            //      no bo jak teraz ta kamera tak sobie orbituje, to gdy kąt już zmieni się wystarczająco
+            //      kierunki zaczynają się nieintuicyjnie dla użytkownika zmieniać
+            //
+            const z_ax = rl.Vector3.init(0, 0, 1);
+            const x_ax = rl.Vector3.init(1, 0, 0);
+            const zero = rl.Vector3.zero();
+            return switch (self) {
+                .up => z_ax,
+                .down => z_ax.scale(-1),
+                .left => x_ax.scale(-1),
+                .right => x_ax,
+                .no_move => zero,
+            };
+        }
+    };
     const JumpState = enum {
         ground,
         launching,
@@ -74,17 +101,23 @@ pub const Player = struct {
     jump_state: JumpState = .ground,
     jump_speed: f32 = 0,
 
-    spatial_dir: Move = Move.no_move,
+    move_action: Move = Move.no_move,
     cam_target: Rlvec3 = Rlvec3{ .x = 0, .y = 0, .z = 0 },
     cam_inert: Inertia = Inertia{
         .x = @splat(0),
         .y = @splat(0),
         .phx = Cfg.default(),
     },
+    worlds: ?[]World = null,
 
-    pub fn init() Player {
+    pub fn init(alloc: Allocator) !Player {
         var cam = view.cameraPersp();
         rl.updateCamera(&cam, .third_person);
+        const worlds = alloc.alloc(World, 1) catch unreachable;
+        for (worlds) |*world| {
+            world.* = World.init(alloc) catch unreachable;
+        }
+
         var p1 = Player{
             .camera = cam,
             .pos = cam.target,
@@ -92,14 +125,22 @@ pub const Player = struct {
                 .pos = math.asFvec3(cam.target),
                 .size = 0.3,
             },
+            .worlds = worlds,
         };
         @memset(p1.text[0..p1.text.len], 0);
         return p1;
     }
 
     pub fn deinit(self: *Player) void {
-        std.debug.print("for now player dont need to deinit but it w8:D\n", .{});
-        _ = self;
+        // is it good idea for world to store allocator?zs
+        if (self.worlds) |worlds| {
+            var alloc: Allocator = undefined;
+            defer alloc.free(worlds);
+            for (worlds) |*world| {
+                alloc = world.alloc;
+                world.deinit();
+            }
+        }
     }
 
     inline fn inputText(self: *Player) void {
@@ -134,27 +175,6 @@ pub const Player = struct {
         }
     }
 
-    const Move = enum {
-        up,
-        down,
-        left,
-        right,
-        no_move,
-
-        fn vec(self: Move) rl.Vector3 {
-            const z_ax = rl.Vector3.init(0, 0, 1);
-            const x_ax = rl.Vector3.init(1, 0, 0);
-            const zero = rl.Vector3.zero();
-            return switch (self) {
-                .up => z_ax,
-                .down => z_ax.scale(-1),
-                .left => x_ax.scale(-1),
-                .right => x_ax,
-                .no_move => zero,
-            };
-        }
-    };
-
     const MoveSet = struct {
         key: rl.KeyboardKey,
         move: Move,
@@ -168,12 +188,15 @@ pub const Player = struct {
             MoveSet{ .key = rl.KeyboardKey.a, .move = Move.left },
             MoveSet{ .key = rl.KeyboardKey.d, .move = Move.right },
         };
+
+        const activationFn = rl.isKeyPressed;
         for (move_set_v) |move| {
-            if (rl.isKeyDown(move.key)) {
+            if (activationFn(move.key)) {
+                std.debug.print("halo\n", .{});
                 direction = move.move;
             }
         }
-        self.spatial_dir = direction;
+        self.move_action = direction;
     }
 
     inline fn moveCamera(self: *Player, dt: f32) void {
@@ -190,8 +213,15 @@ pub const Player = struct {
         self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
     }
 
+    const quedra = math.quadra;
     inline fn moveSpatial(self: *Player) void {
-        self.pos = Move.vec(self.spatial_dir);
+        const delta = Move.vec(self.move_action);
+        const next_pos = self.pos.add(delta);
+        var world = &self.worlds.?[0];
+        if (world.allowMove(next_pos)) {
+            self.pos = next_pos;
+        }
+
         self.pos.y = self.jump_level;
         const v_pos = math.asFvec3(self.pos);
         self.cam_inert.setTarget(v_pos);

@@ -46,6 +46,10 @@ pub fn calcProgres(i: u32, n: u32, closed: bool) f32 {
     return u2f(i) / u2f(dol);
 }
 
+pub inline fn quadra(a: f32) f32 {
+    return a * a;
+}
+
 pub const axisX = fv2{ 1, 0 };
 pub const axisY = fv2{ 0, 1 };
 

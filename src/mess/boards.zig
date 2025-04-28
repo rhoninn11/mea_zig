@@ -87,12 +87,11 @@ pub fn Board(x_dim: u8, z_dim: u8) type {
 // Player could move on a borad, but not just on chess board
 // it could be also other type of boards and player could move
 // along its fields
-pub fn Chessboard(_x: u32, _y: u32) type {
-    const chess_size = Size2D.init(_x, _y);
-    const BoardTpy = Board(_x, _y);
+pub fn Chessboard(x_dim: u32, z_dim: u32) type {
+    const BoardTpy = Board(x_dim, z_dim);
     return struct {
         const Self = @This();
-        pub const Sz = chess_size;
+        pub const Sz = BoardTpy.Sz;
         alloc: Allocator,
         board: BoardTpy,
         col: []rl.Color,
@@ -147,9 +146,8 @@ fn newLn8(i: usize) void {
     }
 }
 
-pub fn WobblyChessboard() type {
-    const BoardTpy = Chessboard(8, 8);
-
+pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
+    const BoardTpy = Chessboard(x_dim, z_dim);
     return struct {
         const Self = @This();
         alloc: Allocator,
@@ -219,7 +217,7 @@ pub fn WobblyChessboard() type {
 }
 
 pub fn NavigationBoard() type {
-    const BoardBase = Chessboard(16, 16);
+    const BoardBase = WobblyChessboard(9, 9);
 
     return struct {
         const Self = @This();
@@ -231,6 +229,27 @@ pub fn NavigationBoard() type {
                 .alloc = alloc,
                 .board = try BoardBase.init(alloc),
             };
+        }
+
+        const Limit = struct {
+            val: f32,
+            lim: f32,
+        };
+
+        pub fn allowMove(self: *Self, next: rl.Vector3) bool {
+            //całe to porównywanie mogbło by się odbywać na innym "poziomie"
+            _ = self;
+            const glob_lim = 4.5;
+
+            const to_limit = [_]Limit{
+                Limit{ .val = next.x, .lim = comptime math.quadra(glob_lim) },
+                Limit{ .val = next.z, .lim = comptime math.quadra(glob_lim) },
+            };
+            var allow_move: bool = true;
+            for (to_limit) |rules| {
+                allow_move = allow_move and math.quadra(rules.val) <= rules.lim;
+            }
+            return allow_move;
         }
 
         pub fn deinit(self: *Self) void {

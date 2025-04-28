@@ -13,7 +13,7 @@ const THEME = @import("../mods/core/repr.zig").Theme;
 const player = @import("player.zig");
 
 const Allocator = std.mem.Allocator;
-const chess = @import("chess.zig");
+const chess = @import("boards.zig");
 const Osc = @import("osc.zig").Osc;
 
 // // ---------------------
@@ -48,10 +48,10 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
 
     // player
-    var p1 = player.Player.init();
+    var p1 = player.Player.init(alloc) catch unreachable;
     defer p1.deinit();
 
-    var chessboard = try chess.WobblyChessboard().init(alloc);
+    var chessboard = try chess.WobblyChessboard(9, 9).init(alloc);
     defer chessboard.deinit();
     chessboard.board.board.debugInfo();
 
