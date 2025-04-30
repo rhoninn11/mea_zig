@@ -49,44 +49,67 @@ pub const EditorMemory = struct {
     }
 };
 
+//Cyli co o konceptach można myśleć w taki bardziej abstrakcyjny sposób
+pub const Editor = struct {
+    const Self = @This();
+    memory: ?*EditorMemory = null,
+    world: ?*World = null,
+
+    pub fn placeConcept(self: *Self, player: *Player) void {
+        //write something write concept in memory
+
+        const pos = player.pos;
+        const world = self.world.? orelse unreachable;
+
+        _ = pos;
+        _ = world;
+    }
+};
+
 const Rlvec3 = rl.Vector3;
 const p = phys.InertiaPack(math.fvec3);
 const Cfg = p.InertiaCfg;
 const Inertia = p.Inertia;
 const Allocator = std.mem.Allocator;
 
-pub const World = boards.NavigationBoard();
-pub const Player = struct {
-    const Move = enum {
-        up,
-        down,
-        left,
-        right,
-        no_move,
+pub const World = boards.WorldNavigBoard();
 
-        fn vec(self: Move) rl.Vector3 {
-            // TODO Doszedłem do takiego wniosku, że dobrze by było zmieniać kierunek wraz z obrotem kamery
-            //      no bo jak teraz ta kamera tak sobie orbituje, to gdy kąt już zmieni się wystarczająco
-            //      kierunki zaczynają się nieintuicyjnie dla użytkownika zmieniać
-            //
-            const z_ax = rl.Vector3.init(0, 0, 1);
-            const x_ax = rl.Vector3.init(1, 0, 0);
-            const zero = rl.Vector3.zero();
-            return switch (self) {
-                .up => z_ax,
-                .down => z_ax.scale(-1),
-                .left => x_ax.scale(-1),
-                .right => x_ax,
-                .no_move => zero,
-            };
-        }
-    };
+pub const Move = enum {
+    up,
+    down,
+    left,
+    right,
+    no_move,
+
+    pub fn vec(self: Move) rl.Vector3 {
+        // TODO Doszedłem do takiego wniosku, że dobrze by było zmieniać kierunek wraz z obrotem kamery
+        //      no bo jak teraz ta kamera tak sobie orbituje, to gdy kąt już zmieni się wystarczająco
+        //      kierunki zaczynają się nieintuicyjnie dla użytkownika zmieniać
+        //
+        // Zawsze mogę nie ruszać kamerą xD
+        //
+        const z_ax = rl.Vector3.init(0, 0, 1);
+        const x_ax = rl.Vector3.init(1, 0, 0);
+        const zero = rl.Vector3.zero();
+        return switch (self) {
+            .up => z_ax,
+            .down => z_ax.scale(-1),
+            .left => x_ax.scale(-1),
+            .right => x_ax,
+            .no_move => zero,
+        };
+    }
+};
+
+pub const Player = struct {
     const JumpState = enum {
         ground,
         launching,
         air,
         landing,
     };
+
+    const Self = @This();
 
     pos: rl.Vector3,
     camera: rl.Camera,
@@ -108,15 +131,12 @@ pub const Player = struct {
         .y = @splat(0),
         .phx = Cfg.default(),
     },
-    worlds: ?[]World = null,
+    world: ?*World = null,
+    editor: Editor = Editor{},
 
-    pub fn init(alloc: Allocator) !Player {
+    pub fn init() Player {
         var cam = view.cameraPersp();
         rl.updateCamera(&cam, .third_person);
-        const worlds = alloc.alloc(World, 1) catch unreachable;
-        for (worlds) |*world| {
-            world.* = World.init(alloc) catch unreachable;
-        }
 
         var p1 = Player{
             .camera = cam,
@@ -125,22 +145,14 @@ pub const Player = struct {
                 .pos = math.asFvec3(cam.target),
                 .size = 0.3,
             },
-            .worlds = worlds,
         };
         @memset(p1.text[0..p1.text.len], 0);
         return p1;
     }
 
-    pub fn deinit(self: *Player) void {
-        // is it good idea for world to store allocator?zs
-        if (self.worlds) |worlds| {
-            var alloc: Allocator = undefined;
-            defer alloc.free(worlds);
-            for (worlds) |*world| {
-                alloc = world.alloc;
-                world.deinit();
-            }
-        }
+    pub fn addToTheWorld(self: *Self, world: *World) void {
+        self.world = world;
+        self.editor.world = world;
     }
 
     inline fn inputText(self: *Player) void {
@@ -175,28 +187,28 @@ pub const Player = struct {
         }
     }
 
-    const MoveSet = struct {
+    const MoveKey = struct {
         key: rl.KeyboardKey,
         move: Move,
     };
 
     inline fn inputMove(self: *Player) void {
-        var direction: Move = .no_move;
-        const move_set_v: []const MoveSet = &[_]MoveSet{
-            MoveSet{ .key = rl.KeyboardKey.w, .move = Move.up },
-            MoveSet{ .key = rl.KeyboardKey.s, .move = Move.down },
-            MoveSet{ .key = rl.KeyboardKey.a, .move = Move.left },
-            MoveSet{ .key = rl.KeyboardKey.d, .move = Move.right },
+        var selected: Move = .no_move;
+        const move_set: []const MoveKey = &[_]MoveKey{
+            MoveKey{ .key = rl.KeyboardKey.w, .move = Move.up },
+            MoveKey{ .key = rl.KeyboardKey.s, .move = Move.down },
+            MoveKey{ .key = rl.KeyboardKey.a, .move = Move.left },
+            MoveKey{ .key = rl.KeyboardKey.d, .move = Move.right },
         };
 
         const activationFn = rl.isKeyPressed;
-        for (move_set_v) |move| {
-            if (activationFn(move.key)) {
+        for (move_set) |control| {
+            if (activationFn(control.key)) {
                 std.debug.print("halo\n", .{});
-                direction = move.move;
+                selected = control.move;
             }
         }
-        self.move_action = direction;
+        self.move_action = selected;
     }
 
     inline fn moveCamera(self: *Player, dt: f32) void {
@@ -213,11 +225,12 @@ pub const Player = struct {
         self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
     }
 
-    const quedra = math.quadra;
     inline fn moveSpatial(self: *Player) void {
         const delta = Move.vec(self.move_action);
         const next_pos = self.pos.add(delta);
-        var world = &self.worlds.?[0];
+        var world = self.world.?;
+        world.navig(self.move_action);
+        // world.moveInWorld(self.move_action);
         if (world.allowMove(next_pos)) {
             self.pos = next_pos;
         }

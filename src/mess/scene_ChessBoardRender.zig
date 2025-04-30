@@ -48,19 +48,20 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
 
     // player
-    var p1 = player.Player.init(alloc) catch unreachable;
-    defer p1.deinit();
+    var world = try chess.WorldNavigBoard().init(alloc);
+    defer world.deinit();
 
-    var chessboard = try chess.WobblyChessboard(9, 9).init(alloc);
-    defer chessboard.deinit();
+    var p1 = player.Player.init();
+    p1.addToTheWorld(&world);
+
+    world.pamperek = &p1;
+
+    var chessboard = world.board;
     chessboard.board.board.debugInfo();
 
     chessboard.oscInfo();
     chessboard.update(500);
     chessboard.oscInfo();
-
-    var navig_board = try chess.NavigationBoard().init(alloc);
-    defer navig_board.deinit();
 
     const text_buffer = try alloc.alloc(u8, 1024);
     defer alloc.free(text_buffer);

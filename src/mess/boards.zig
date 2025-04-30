@@ -215,14 +215,18 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
         }
     };
 }
+const player = @import("player.zig");
+const Move = player.Move;
+const Player = player.Player;
 
-pub fn NavigationBoard() type {
+pub fn WorldNavigBoard() type {
     const BoardBase = WobblyChessboard(9, 9);
 
     return struct {
         const Self = @This();
         board: BoardBase,
         alloc: Allocator,
+        pamperek: ?*Player = null,
 
         pub fn init(alloc: Allocator) !Self {
             return Self{
@@ -236,20 +240,32 @@ pub fn NavigationBoard() type {
             lim: f32,
         };
 
+        const quadra = math.quadra;
         pub fn allowMove(self: *Self, next: rl.Vector3) bool {
             //całe to porównywanie mogbło by się odbywać na innym "poziomie"
             _ = self;
             const glob_lim = 4.5;
 
             const to_limit = [_]Limit{
-                Limit{ .val = next.x, .lim = comptime math.quadra(glob_lim) },
-                Limit{ .val = next.z, .lim = comptime math.quadra(glob_lim) },
+                Limit{ .val = next.x, .lim = comptime quadra(glob_lim) },
+                Limit{ .val = next.z, .lim = comptime quadra(glob_lim) },
             };
             var allow_move: bool = true;
             for (to_limit) |rules| {
                 allow_move = allow_move and math.quadra(rules.val) <= rules.lim;
             }
             return allow_move;
+        }
+
+        pub fn navig(self: *Self, move: Move) void {
+            const pamper = self.pamperek.?;
+            const delta = Move.vec(move);
+
+            const new_pos = pamper.pos.add(delta);
+
+            if (self.allowMove(new_pos)) {
+                pamper.pos = new_pos;
+            }
         }
 
         pub fn deinit(self: *Self) void {
