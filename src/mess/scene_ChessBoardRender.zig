@@ -175,8 +175,8 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);
 
             parametric.repr(rl.Vector3.zero());
-            chessboard.board.repr();
-            // navig_board.repr();
+            // chessboard.board.repr();
+            world.repr();
         }
     }
 }

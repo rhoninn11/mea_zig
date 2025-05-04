@@ -122,7 +122,7 @@ pub const Player = struct {
         .y = @splat(0),
         .phx = Cfg3D.default(),
     },
-    cam_phase: f32 = 0,
+    cam_phase: f32 = math.PI,
     cam_inert_phase: Inertia1D = .{
         .x = .{0},
         .y = .{0},

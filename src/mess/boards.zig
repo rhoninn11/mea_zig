@@ -225,7 +225,7 @@ const Move = player.Move;
 const Player = player.Player;
 
 pub fn WorldNavigBoard() type {
-    const BoardBase = WobblyChessboard(9, 9);
+    const BoardBase = WobblyChessboard(8, 8);
 
     return struct {
         const Self = @This();
@@ -236,6 +236,7 @@ pub fn WorldNavigBoard() type {
 
         board: BoardBase,
         alloc: Allocator,
+        phase: f32 = 0,
 
         pub fn init(alloc: Allocator) !Self {
             return Self{
@@ -288,6 +289,7 @@ pub fn WorldNavigBoard() type {
         pub fn navig(self: *Self, pamperek: *Player, move: Move) void {
             const delta = self.decodeMove(move);
             const new_pos = pamperek.pos.add(delta);
+            self.phase = pamperek.cam_phase;
 
             if (self.allowMove(new_pos)) {
                 pamperek.pos = new_pos;
@@ -299,7 +301,41 @@ pub fn WorldNavigBoard() type {
         }
 
         pub fn repr(self: *Self) void {
-            self.board.repr();
+            self.board.board.repr();
+
+            const dirs: []const math.fvec3 = &.{
+                Self.Forward,
+                Self.Right,
+                Self.Backward,
+                Self.Left,
+            };
+
+            const origin = rl.Vector3.init(0, 1, 0);
+            const mult: math.fvec3 = @splat(3);
+            for (dirs) |dir| {
+                const rlvec = math.asRlvec3(dir * mult);
+                rl.drawLine3D(origin, origin.add(rlvec), rl.Color.maroon);
+            }
+
+            var osc_calc = Osc{ .phase = self.phase };
+            const xz = osc_calc.sample2D();
+            const rlxz = rl.Vector3.init(xz[0], 0, xz[1]).scale(-1);
+            const xz_origin = origin.add(origin.scale(0.5));
+            rl.drawLine3D(xz_origin, xz_origin.add(rlxz), rl.Color.white);
+
+            var max_id: u8 = 0;
+            var max_similarity: f32 = -1;
+            const xz_fvec = math.asFvec3(rlxz);
+            for (dirs, 0..) |dir, i| {
+                const val = math.dot(dir, xz_fvec);
+                if (val > max_similarity) {
+                    max_id = @intCast(i);
+                    max_similarity = val;
+                }
+            }
+            const sim_origin = origin.add(origin);
+            const aligned = math.asRlvec3(dirs[max_id]);
+            rl.drawLine3D(sim_origin, sim_origin.add(aligned), rl.Color.black);
         }
     };
 }

@@ -2,6 +2,7 @@ const rl = @import("raylib");
 pub const iv2 = @Vector(2, i32);
 pub const fv2 = @Vector(2, f32);
 pub const fvec3 = @Vector(3, f32);
+
 pub inline fn dot(a: fvec3, b: fvec3) f32 {
     const pre = a * b;
     return pre[0] + pre[1] + pre[2];
@@ -74,3 +75,5 @@ pub fn center(values: []f32) void {
         value.* = (value.* - offset) * scale;
     }
 }
+
+pub const PI = 3.1415;
