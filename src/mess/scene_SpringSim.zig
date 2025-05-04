@@ -183,8 +183,8 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         for (inerts) |inertia_point| {
             inertia_point.simulate(delta_ms);
         }
-        lin_spc.a = inerts[0].getPos();
-        lin_spc.b = inerts[1].getPos();
+        lin_spc.a = inerts[0].getResutl();
+        lin_spc.b = inerts[1].getResutl();
 
         my_sim.update(delta_ms);
         // my_sim.sample_circles(lin_spc);
@@ -201,7 +201,7 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         repr.frame(lin_spc.sample(1), sldr.pos == 1);
 
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        const tmp = pointer_inert.getPos();
+        const tmp = pointer_inert.getResutl();
         const pointer_pos = rl.Vector3.init(tmp[0], tmp[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
         // img_box.drawRepr();

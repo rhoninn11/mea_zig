@@ -95,6 +95,8 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
         alloc: Allocator,
         board: BoardTpy,
         col: []rl.Color,
+        mesh: ?rl.Mesh = null,
+        material: ?rl.Material = null,
 
         pub fn init(a: Allocator) !Self {
             const n = Self.Sz.len;
@@ -133,6 +135,9 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
                 pos = pos.multiply(rl.Vector3.init(size.x_dim, 1, size.z_dim));
                 const cube_size = rl.Vector3.init(1, 0.33, 1);
                 rl.drawCubeWiresV(pos, cube_size, c);
+
+                // const transform = rl.Matrix.translate(pos.x, pos.y, pos.z);
+                // rl.drawMesh(self.mesh.?, self.material.?, transform);
             }
         }
     };
@@ -224,9 +229,13 @@ pub fn WorldNavigBoard() type {
 
     return struct {
         const Self = @This();
+        const Forward: math.fvec3 = .{ 1, 0, 0 };
+        const Backward: math.fvec3 = .{ -1, 0, 0 };
+        const Left: math.fvec3 = .{ 0, 0, -1 };
+        const Right: math.fvec3 = .{ 0, 0, 1 };
+
         board: BoardBase,
         alloc: Allocator,
-        pamperek: ?*Player = null,
 
         pub fn init(alloc: Allocator) !Self {
             return Self{
@@ -240,8 +249,8 @@ pub fn WorldNavigBoard() type {
             lim: f32,
         };
 
-        const quadra = math.quadra;
         pub fn allowMove(self: *Self, next: rl.Vector3) bool {
+            const quadra = math.quadra;
             //całe to porównywanie mogbło by się odbywać na innym "poziomie"
             _ = self;
             const glob_lim = 4.5;
@@ -257,14 +266,31 @@ pub fn WorldNavigBoard() type {
             return allow_move;
         }
 
-        pub fn navig(self: *Self, move: Move) void {
-            const pamper = self.pamperek.?;
-            const delta = Move.vec(move);
+        fn decodeMove(self: *Self, move: Move) rl.Vector3 {
+            // TODO Doszedłem do takiego wniosku, że dobrze by było zmieniać kierunek wraz z obrotem kamery
+            //      no bo jak teraz ta kamera tak sobie orbituje, to gdy kąt już zmieni się wystarczająco
+            //      kierunki zaczynają się nieintuicyjnie dla użytkownika zmieniać
+            //
+            // Zawsze mogę nie ruszać kamerą xD
+            // wraz z ewolucją świata, wektory ruchmu mogą ulegać zmianie, na podstawie potencjalnego
+            // self.state
+            //
+            _ = self;
+            return switch (move) {
+                .up => math.asRlvec3(Self.Forward),
+                .down => math.asRlvec3(Self.Backward),
+                .left => math.asRlvec3(Self.Left),
+                .right => math.asRlvec3(Self.Right),
+                .no_move => rl.Vector3.zero(),
+            };
+        }
 
-            const new_pos = pamper.pos.add(delta);
+        pub fn navig(self: *Self, pamperek: *Player, move: Move) void {
+            const delta = self.decodeMove(move);
+            const new_pos = pamperek.pos.add(delta);
 
             if (self.allowMove(new_pos)) {
-                pamper.pos = new_pos;
+                pamperek.pos = new_pos;
             }
         }
 

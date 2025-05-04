@@ -79,7 +79,7 @@ pub fn InertiaPack(VecTpy: type) type {
                 self.x = new_target;
             }
 
-            pub fn getPos(self: *Self) VecTpy {
+            pub fn getResutl(self: *Self) VecTpy {
                 return self.y;
             }
         };

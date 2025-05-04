@@ -67,11 +67,15 @@ pub const Editor = struct {
 };
 
 const Rlvec3 = rl.Vector3;
-const p = phys.InertiaPack(math.fvec3);
-const Cfg = p.InertiaCfg;
-const Inertia = p.Inertia;
-const Allocator = std.mem.Allocator;
 
+const _phys3D = phys.InertiaPack(math.fvec3);
+const Cfg3D = _phys3D.InertiaCfg;
+const Inertia3D = _phys3D.Inertia;
+const _phys1D = phys.InertiaPack(@Vector(1, f32));
+const Cfg1D = _phys1D.InertiaCfg;
+const Inertia1D = _phys1D.Inertia;
+
+const Allocator = std.mem.Allocator;
 pub const World = boards.WorldNavigBoard();
 
 pub const Move = enum {
@@ -80,35 +84,22 @@ pub const Move = enum {
     left,
     right,
     no_move,
+};
 
-    pub fn vec(self: Move) rl.Vector3 {
-        // TODO Doszedłem do takiego wniosku, że dobrze by było zmieniać kierunek wraz z obrotem kamery
-        //      no bo jak teraz ta kamera tak sobie orbituje, to gdy kąt już zmieni się wystarczająco
-        //      kierunki zaczynają się nieintuicyjnie dla użytkownika zmieniać
-        //
-        // Zawsze mogę nie ruszać kamerą xD
-        //
-        const z_ax = rl.Vector3.init(0, 0, 1);
-        const x_ax = rl.Vector3.init(1, 0, 0);
-        const zero = rl.Vector3.zero();
-        return switch (self) {
-            .up => z_ax,
-            .down => z_ax.scale(-1),
-            .left => x_ax.scale(-1),
-            .right => x_ax,
-            .no_move => zero,
-        };
-    }
+pub const TurnCamera = enum {
+    turn_left,
+    turn_right,
+    no_turn,
+};
+
+pub const JumpState = enum {
+    ground,
+    launching,
+    air,
+    landing,
 };
 
 pub const Player = struct {
-    const JumpState = enum {
-        ground,
-        launching,
-        air,
-        landing,
-    };
-
     const Self = @This();
 
     pos: rl.Vector3,
@@ -126,10 +117,16 @@ pub const Player = struct {
 
     move_action: Move = Move.no_move,
     cam_target: Rlvec3 = Rlvec3{ .x = 0, .y = 0, .z = 0 },
-    cam_inert: Inertia = Inertia{
+    cam_inert_targ: Inertia3D = Inertia3D{
         .x = @splat(0),
         .y = @splat(0),
-        .phx = Cfg.default(),
+        .phx = Cfg3D.default(),
+    },
+    cam_phase: f32 = 0,
+    cam_inert_phase: Inertia1D = .{
+        .x = .{0},
+        .y = .{0},
+        .phx = Cfg1D.default(),
     },
     world: ?*World = null,
     editor: Editor = Editor{},
@@ -192,8 +189,14 @@ pub const Player = struct {
         move: Move,
     };
 
+    const TurnAction = struct {
+        key: rl.KeyboardKey,
+        turn: TurnCamera,
+        amount: f32,
+    };
+
     inline fn inputMove(self: *Player) void {
-        var selected: Move = .no_move;
+        const activationFn = rl.isKeyPressed;
         const move_set: []const MoveKey = &[_]MoveKey{
             MoveKey{ .key = rl.KeyboardKey.w, .move = Move.up },
             MoveKey{ .key = rl.KeyboardKey.s, .move = Move.down },
@@ -201,46 +204,46 @@ pub const Player = struct {
             MoveKey{ .key = rl.KeyboardKey.d, .move = Move.right },
         };
 
-        const activationFn = rl.isKeyPressed;
+        var selected: Move = .no_move;
         for (move_set) |control| {
             if (activationFn(control.key)) {
-                std.debug.print("halo\n", .{});
                 selected = control.move;
             }
         }
         self.move_action = selected;
     }
 
-    inline fn moveCamera(self: *Player, dt: f32) void {
-        const hight: f32 = 3.51;
-        const away: f32 = 9;
-        self.osc.freq = 0.2 / (away);
-        const awayV: math.fvec2 = @splat(away);
+    inline fn inputCameraTurn(self: *Player) void {
+        const activationFn = rl.isKeyPressed;
+        const move_set: []const TurnAction = &.{
+            TurnAction{
+                .key = rl.KeyboardKey.h,
+                .turn = TurnCamera.turn_right,
+                .amount = 0.45,
+            },
+            TurnAction{
+                .key = rl.KeyboardKey.l,
+                .turn = TurnCamera.turn_left,
+                .amount = -0.45,
+            },
+        };
 
-        self.osc.update(dt);
-        const xz = self.osc.sample2D() * awayV;
-
-        // const zero = rl.Vector3.zero();
-        self.camera.target = self.cam_target;
-        self.camera.position = rl.Vector3.init(xz[0], hight, xz[1]);
+        var selected = TurnCamera.no_turn;
+        for (move_set) |action| {
+            if (activationFn(action.key)) {
+                self.cam_phase = self.cam_phase + action.amount;
+                selected = action.turn;
+            }
+        }
     }
 
     inline fn moveSpatial(self: *Player) void {
-        const delta = Move.vec(self.move_action);
-        const next_pos = self.pos.add(delta);
-        var world = self.world.?;
-        world.navig(self.move_action);
-        // world.moveInWorld(self.move_action);
-        if (world.allowMove(next_pos)) {
-            self.pos = next_pos;
-        }
+        // Q: how now i have connection with board i could move on its fields
+        // A: now world generate new position, where player will be placed on
 
+        var world = self.world.?;
+        world.navig(self, self.move_action);
         self.pos.y = self.jump_level;
-        const v_pos = math.asFvec3(self.pos);
-        self.cam_inert.setTarget(v_pos);
-        const v_targ = math.asRlvec3(self.cam_inert.getPos());
-        self.cam_target = v_targ;
-        // how now i have connection with board i could move on its fields
     }
 
     fn simJump(self: *Player, dt_ms: f32) void {
@@ -276,19 +279,35 @@ pub const Player = struct {
         }
     }
 
+    fn simCam(self: *Player, dt: f32) void {
+        const new_targ_pos = math.asFvec3(self.pos);
+        const inert_tg = &self.cam_inert_targ;
+        inert_tg.setTarget(new_targ_pos);
+        inert_tg.simulate(dt);
+
+        const inert_ph = &self.cam_inert_phase;
+        inert_ph.setTarget(.{self.cam_phase});
+        inert_ph.simulate(dt);
+        const delayed_phase = inert_ph.getResutl();
+
+        const away: f32 = 9;
+        const hight: f32 = 3.51;
+        const osc_calc = Osc{ .phase = delayed_phase[0] };
+        const planar_pos = osc_calc.sample2D() * math.fvec2{ away, away };
+        const new_cam_pos = rl.Vector3.init(planar_pos[0], hight, planar_pos[1]);
+
+        self.camera.target = math.asRlvec3(inert_tg.getResutl());
+        self.camera.position = new_cam_pos;
+    }
+
     pub fn update(self: *Player, dt: f32) void {
         self.inputText();
         self.inputJump();
         self.inputMove();
         self.simJump(dt);
-        self.cam_inert.simulate(dt);
-        self.moveCamera(dt);
         self.moveSpatial();
-
-        // ##### pre camera manipulation
-        // const cam = &self.camera;
-        // rl.updateCamera(cam, .third_person);
-        // self.pos = cam.target;
+        self.inputCameraTurn();
+        self.simCam(dt);
 
         // colide update
         self.colider.pos = math.asFvec3(self.pos);

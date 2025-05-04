@@ -1,6 +1,6 @@
 const std = @import("std");
 const math = @import("math.zig");
-const vf2 = math.fv2;
+const fvec2 = math.fv2;
 
 pub const Osc = struct {
     amp: f32 = 1,
@@ -12,10 +12,10 @@ pub const Osc = struct {
         self.phase += delta_s * std.math.pi * 2;
     }
 
-    pub inline fn sample2D(self: Osc) vf2 {
+    pub inline fn sample2D(self: Osc) fvec2 {
         const x: f32 = std.math.cos(self.phase) * self.amp;
         const y: f32 = std.math.sin(self.phase) * self.amp;
-        return vf2{ x, y };
+        return fvec2{ x, y };
     }
 
     pub inline fn sample(self: Osc) f32 {

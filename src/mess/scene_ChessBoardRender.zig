@@ -54,9 +54,14 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     var p1 = player.Player.init();
     p1.addToTheWorld(&world);
 
-    world.pamperek = &p1;
+    const cube_mesh = rl.genMeshCube(0.5, 0.5, 0.5);
+    defer rl.unloadMesh(cube_mesh);
+    const cube_material = rl.loadMaterialDefault() catch unreachable;
+    defer rl.unloadMaterial(cube_material);
 
     var chessboard = world.board;
+    chessboard.board.mesh = cube_mesh;
+    chessboard.board.material = cube_material;
     chessboard.board.board.debugInfo();
 
     chessboard.oscInfo();
@@ -123,7 +128,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         const delta_ms = timeline.tickMs();
         p1.update(delta_ms);
         exiter.update(delta_ms);
-        chessboard.update(delta_ms);
+        // chessboard.update(delta_ms);
         for (osc_slice) |osc| osc.update(delta_ms);
         total_s += delta_ms / 1000;
 
