@@ -21,7 +21,7 @@ const Size2D = struct {
     }
 };
 
-pub fn Board(x_dim: u8, z_dim: u8) type {
+pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
     const b_size = Size2D.init(x_dim, z_dim);
     return struct {
         const Self = @This();
@@ -88,12 +88,13 @@ pub fn Board(x_dim: u8, z_dim: u8) type {
 // it could be also other type of boards and player could move
 // along its fields
 pub fn Chessboard(x_dim: u32, z_dim: u32) type {
-    const BoardTpy = Board(x_dim, z_dim);
+    const Grid = SquareBoard(x_dim, z_dim);
     return struct {
         const Self = @This();
-        pub const Sz = BoardTpy.Sz;
+        pub const Sz = Grid.Sz;
         alloc: Allocator,
-        board: BoardTpy,
+        board: Grid,
+        scale: rl.Vector3 = math.asRlvec3(.{ Sz.x_dim, 1, Sz.z_dim }),
         col: []rl.Color,
         mesh: ?rl.Mesh = null,
         material: ?rl.Material = null,
@@ -102,7 +103,7 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
             const n = Self.Sz.len;
             var prefab = Self{
                 .alloc = a,
-                .board = try BoardTpy.init(a),
+                .board = try Grid.init(a),
                 .col = try a.alloc(rl.Color, n),
             };
             prefab.calcColor();
@@ -128,11 +129,10 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
         }
 
         pub fn repr(self: *Self) void {
-            const size = Self.Sz;
-            const b: *BoardTpy = &self.board;
+            const b: *Grid = &self.board;
             for (b.x_v, b.y_v, b.z_v, self.col) |x, y, z, c| {
                 var pos = rl.Vector3.init(x, y, z);
-                pos = pos.multiply(rl.Vector3.init(size.x_dim, 1, size.z_dim));
+                pos = pos.multiply(self.scale);
                 const cube_size = rl.Vector3.init(1, 0.33, 1);
                 rl.drawCubeWiresV(pos, cube_size, c);
 
@@ -286,14 +286,16 @@ pub fn WorldNavigBoard() type {
             };
         }
 
-        pub fn navig(self: *Self, pamperek: *Player, move: Move) void {
+        pub fn traverse(self: *Self, pamperek: *Player, move: Move) rl.Vector3 {
             const delta = self.decodeMove(move);
-            const new_pos = pamperek.pos.add(delta);
+            var travel_to = pamperek.pos;
+            const dst = travel_to.add(delta);
             self.phase = pamperek.cam_phase;
 
-            if (self.allowMove(new_pos)) {
-                pamperek.pos = new_pos;
+            if (self.allowMove(dst)) {
+                travel_to = dst;
             }
+            return travel_to;
         }
 
         pub fn deinit(self: *Self) void {

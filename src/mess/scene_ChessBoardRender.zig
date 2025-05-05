@@ -59,6 +59,11 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     const cube_material = rl.loadMaterialDefault() catch unreachable;
     defer rl.unloadMaterial(cube_material);
 
+    const fonts = @import("fonts.zig");
+    const font = fonts.getFont();
+    defer rl.unloadFont(font);
+    fonts.inspectFont(&font);
+
     var chessboard = world.board;
     chessboard.board.mesh = cube_mesh;
     chessboard.board.material = cube_material;
@@ -89,8 +94,21 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     defer rl.unloadModel(model_sky);
     model_sky.materials[0].shader = shader_gradient;
 
-    const parametric = try sh.Paramatric.init();
+    const parametric = try sh.Paramatric.init(.knot);
     defer parametric.deinit();
+
+    var cube_param = try sh.Paramatric.init(.cube);
+    defer cube_param.deinit();
+
+    const trans = rl.Matrix.translate(0, -1.2, 0);
+    const base = 8.81;
+    const scale = rl.Matrix.scale(base, 1, base);
+
+    // why color depends on transform...
+    cube_param.setTransform(scale.multiply(trans));
+
+    const maroon = rl.Color.red;
+    cube_param.setColor(&maroon);
 
     // loc names could be accesed from Parametric i guess, it would be so nice
     // i could generate enum to select location by name, but has guarantee that
@@ -124,6 +142,9 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     };
     // ---
 
+    const thk = 4;
+    const deltas: []const math.ivec2 = &.{ .{ 0, thk }, .{ 0, -thk }, .{ thk, 0 }, .{ -thk, 0 } };
+    const zero = rl.Vector3.zero();
     while (exiter.toContinue()) {
         const delta_ms = timeline.tickMs();
         p1.update(delta_ms);
@@ -153,7 +174,18 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             // draw ui at the end
             rl.drawText(text, 10, 10, 24, THEME[1]);
             rl.drawText(p1.text[0..64], 10, 34, 24, THEME[1]);
+            rl.drawTextEx(font, p1.text[0..64], rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
+
+            rl.drawTextEx(font, fonts.test_string, rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
+            for (deltas) |delta| {
+                rl.drawText(fonts.test_string, 10 + delta[0], 364 + delta[1], 34, THEME[0]);
+            }
+            rl.drawText(fonts.test_string, 10, 364, 34, THEME[1]);
+
             exiter.draw();
+            if (p1.operation_mode == .edit) {
+                rl.drawCircle(20, 200, 20, THEME[0]);
+            }
             medium.end();
         }
 
@@ -174,9 +206,12 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             rl.drawSphere(dyn_pos, dynamic.size, sColor);
             rl.drawModel(model_sky, p1.pos, 100, rl.Color.blue);
 
-            parametric.repr(rl.Vector3.zero());
+            parametric.repr(zero);
             // chessboard.board.repr();
             world.repr();
+            // cube_param.repr(zero);
+
+            // rl.drawMes
         }
     }
 }

@@ -86,9 +86,9 @@ pub const Move = enum {
     no_move,
 };
 
-pub const TurnCamera = enum {
-    turn_left,
-    turn_right,
+pub const Modes = enum {
+    navig,
+    edit,
     no_turn,
 };
 
@@ -130,6 +130,7 @@ pub const Player = struct {
     },
     world: ?*World = null,
     editor: Editor = Editor{},
+    operation_mode: Modes = Modes.navig,
 
     pub fn init() Player {
         var cam = view.cameraPersp();
@@ -152,27 +153,45 @@ pub const Player = struct {
         self.editor.world = world;
     }
 
-    inline fn inputText(self: *Player) void {
+    const Unicode = extern union {
+        as_rune: i32,
+        as_array: [4]u8,
+    };
+    fn processText(self: *Player, char: Unicode) void {
+        if (self.cursor == self.text.len) {
+            const full = self.text.len;
+            const half = full / 2;
+            @memcpy(self.text[0..half], self.text[half..full]);
+            @memset(self.text[half..full], 0);
+            self.cursor = half;
+        }
+
+        std.debug.print("+++ unicode? {}\n", .{char.as_rune});
+        // assuming big
+
+        for (char.as_array, 0..) |byte, i| {
+            if (byte != 0x00) {
+                std.debug.print("({d})", .{i});
+                self.text[self.cursor] = byte;
+                self.cursor += 1;
+            }
+        }
+
+        // works only for extedned asci, higher unicodes are missing...
+        // const test_label = "ñòóôõö÷\nøùúûüýþÿó";
+        // var idx: u8 = 0;
+        // for (test_label) |byte| {
+        //     self.text[idx] = byte;
+        //     idx += 1;
+        // }
+        return;
+    }
+
+    fn inputText(self: *Player) void {
         while (true) {
             const code = rl.getCharPressed();
             if (code == 0) break;
-            if (self.cursor == self.text.len) {
-                const full = self.text.len;
-                const half = full / 2;
-                @memcpy(self.text[0..half], self.text[half..full]);
-                @memset(self.text[half..full], 0);
-                self.cursor = half;
-                std.debug.print("+1\n", .{});
-            }
-
-            //but polish characters breaking it
-            if (code < 256) {
-                const char: u8 = @intCast(code);
-                self.text[self.cursor] = char;
-                self.cursor += 1;
-            } else {
-                std.debug.print("+++ there was one of special characters {}\n", .{code});
-            }
+            self.processText(Unicode{ .as_rune = code });
         }
     }
 
@@ -191,11 +210,10 @@ pub const Player = struct {
 
     const TurnAction = struct {
         key: rl.KeyboardKey,
-        turn: TurnCamera,
         amount: f32,
     };
 
-    inline fn inputMove(self: *Player) void {
+    fn inputMove(self: *Player) void {
         const activationFn = rl.isKeyPressed;
         const move_set: []const MoveKey = &[_]MoveKey{
             MoveKey{ .key = rl.KeyboardKey.w, .move = Move.up },
@@ -213,37 +231,42 @@ pub const Player = struct {
         self.move_action = selected;
     }
 
-    inline fn inputCameraTurn(self: *Player) void {
+    fn inputCameraTurn(self: *Player) void {
         const activationFn = rl.isKeyPressed;
         const move_set: []const TurnAction = &.{
-            TurnAction{
-                .key = rl.KeyboardKey.h,
-                .turn = TurnCamera.turn_right,
-                .amount = 0.45,
-            },
-            TurnAction{
-                .key = rl.KeyboardKey.l,
-                .turn = TurnCamera.turn_left,
-                .amount = -0.45,
-            },
+            TurnAction{ .key = rl.KeyboardKey.h, .amount = 0.45 },
+            TurnAction{ .key = rl.KeyboardKey.l, .amount = -0.45 },
         };
 
-        var selected = TurnCamera.no_turn;
         for (move_set) |action| {
             if (activationFn(action.key)) {
                 self.cam_phase = self.cam_phase + action.amount;
-                selected = action.turn;
             }
         }
     }
 
-    inline fn moveSpatial(self: *Player) void {
+    fn inputModeSwitch(self: *Player) void {
+        const activationFn = rl.isKeyPressed;
+        const kb = rl.KeyboardKey.tab;
+
+        if (activationFn(kb)) {
+            self.operation_mode = switch (self.operation_mode) {
+                Modes.edit => Modes.navig,
+                Modes.navig => Modes.edit,
+                else => self.operation_mode,
+            };
+        }
+    }
+
+    fn moveSpatial(self: *Player) void {
         // Q: how now i have connection with board i could move on its fields
         // A: now world generate new position, where player will be placed on
 
         var world = self.world.?;
-        world.navig(self, self.move_action);
-        self.pos.y = self.jump_level;
+        var next_pos = world.traverse(self, self.move_action);
+        next_pos.y = self.jump_level;
+
+        self.pos = next_pos;
     }
 
     fn simJump(self: *Player, dt_ms: f32) void {
@@ -301,12 +324,18 @@ pub const Player = struct {
     }
 
     pub fn update(self: *Player, dt: f32) void {
-        self.inputText();
-        self.inputJump();
-        self.inputMove();
+        self.inputModeSwitch();
+        switch (self.operation_mode) {
+            Modes.edit => self.inputText(),
+            Modes.navig => {
+                self.inputJump();
+                self.inputMove();
+                self.inputCameraTurn();
+            },
+            else => {},
+        }
         self.simJump(dt);
         self.moveSpatial();
-        self.inputCameraTurn();
         self.simCam(dt);
 
         // colide update
@@ -317,11 +346,11 @@ pub const Player = struct {
         rl.drawSphere(self.pos, self.colider.size, color);
     }
 
-    // TODO: what i want to implement here is custom implementation of 3d movement.
-    //       Adding moves like jump or camera paninng with mouse
-    // TODO: czym są symulacje... to programy, które żyją własnym życiem?
+    // FILO: czym są symulacje... to programy, które żyją własnym życiem?
     //       może trochę zależy też co symulują, ale zazwyczaj starają się
     //       przedstawić jakieś zjawiska, a czy gracz też mógłby być symulowany?
+    //       //
+    // TODO: Teraz chciałmym móc ustawiać zdjęcia na tej planszy
     //       //
 
     pub fn moveInput() void {}
