@@ -11,6 +11,7 @@ const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
 const THEME = @import("../mods/core/repr.zig").Theme;
 const player = @import("player.zig");
+const sound = @import("sound.zig");
 
 const Allocator = std.mem.Allocator;
 const chess = @import("boards.zig");
@@ -46,7 +47,7 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
 }
 
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
-
+    _ = sound.getBam();
     // player
     var world = try chess.WorldNavigBoard().init(alloc);
     defer world.deinit();
