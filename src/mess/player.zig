@@ -4,6 +4,7 @@ const math = @import("math.zig");
 const view = @import("view.zig");
 const collision = @import("sphere.zig");
 const phys = @import("../mods/phys.zig");
+const sound = @import("sound.zig");
 
 const boards = @import("boards.zig");
 const Osc = @import("osc.zig").Osc;
@@ -205,6 +206,7 @@ pub const Player = struct {
         if (jump_action and self.jump_state == .ground) {
             self.jump_state = .launching;
             self.spawnAction();
+            rl.playSound(sound.getBam().*);
         }
     }
 
@@ -292,11 +294,12 @@ pub const Player = struct {
 
     fn simJump(self: *Player, dt_ms: f32) void {
         const dt_s = dt_ms * 0.001;
-        const acc = 10;
+        const acc = 20;
+        const initial_speed: comptime_float = 5;
         switch (self.jump_state) {
             .launching => {
                 self.jump_state = .air;
-                self.jump_speed = 10;
+                self.jump_speed = initial_speed;
                 // std.log.debug("+++ launching", .{});
             },
             .air => {
