@@ -110,6 +110,10 @@ pub const Player = struct {
     text: [64:0]u8 = undefined,
     cursor: u8 = 0,
 
+    spots: [16]rl.Vector3 = undefined,
+    spot_num: u8 = 0,
+    spot_ptr: u8 = 0,
+
     ground_level: f32 = 0,
     jump_level: f32 = 0,
     jump_state: JumpState = .ground,
@@ -200,6 +204,7 @@ pub const Player = struct {
         const jump_action = rl.isKeyPressed(jumpKey);
         if (jump_action and self.jump_state == .ground) {
             self.jump_state = .launching;
+            self.spawnAction();
         }
     }
 
@@ -258,6 +263,22 @@ pub const Player = struct {
         }
     }
 
+    fn spawnAction(self: *Player) void {
+        const spawn_point = self.pos;
+        self.spots[self.spot_ptr] = spawn_point;
+
+        if (self.spot_num < self.spots.len) {
+            self.spot_num += 1;
+        }
+
+        self.spot_ptr += 1;
+        if (self.spot_ptr == self.spots.len) {
+            self.spot_ptr = 0;
+        }
+
+        std.debug.print("spawned at {}\n", .{spawn_point});
+    }
+
     fn moveSpatial(self: *Player) void {
         // Q: how now i have connection with board i could move on its fields
         // A: now world generate new position, where player will be placed on
@@ -276,7 +297,7 @@ pub const Player = struct {
             .launching => {
                 self.jump_state = .air;
                 self.jump_speed = 10;
-                std.log.debug("+++ launching", .{});
+                // std.log.debug("+++ launching", .{});
             },
             .air => {
                 self.jump_speed = self.jump_speed - acc * dt_s;
@@ -285,7 +306,7 @@ pub const Player = struct {
                 self.jump_state = .ground;
                 self.jump_speed = 0;
                 self.jump_level = self.ground_level;
-                std.log.debug("+++ landing", .{});
+                // std.log.debug("+++ landing", .{});
             },
             .ground => {},
         }
@@ -293,7 +314,7 @@ pub const Player = struct {
         switch (self.jump_state) {
             .air => {
                 self.jump_level += self.jump_speed * dt_s;
-                std.log.debug("+++ in air: {d: <4}\n", .{self.jump_level});
+                // std.log.debug("+++ in air: {d: <4}\n", .{self.jump_level});
                 if (self.jump_level <= self.ground_level) {
                     self.jump_state = .landing;
                 }

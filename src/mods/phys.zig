@@ -54,11 +54,22 @@ pub fn InertiaPack(VecTpy: type) type {
             y: VecTpy,
             yd: VecTpy = asVec(0),
             phx: ?InertiaCfg = null,
+            const smaller_step = 25.0;
 
-            pub inline fn simulate(self: *Self, td_ms: f32) void {
-                //could calculate few samller steps as one big
-                std.debug.assert(td_ms < 100); //crash app if optimalization is needed
+            pub inline fn simulate(self: *Self, prograss_ms: f32) void {
+                //crash app if optimalization is needed
+                // std.debug.assert(prograss_ms < 100);
 
+                var delta_ms: f32 = prograss_ms;
+                while (delta_ms > smaller_step) {
+                    self.simVariableStep(smaller_step);
+                    // std.debug.print("[f]\n", {se})
+                    delta_ms -= smaller_step;
+                }
+
+                self.simVariableStep(delta_ms);
+            }
+            inline fn simVariableStep(self: *Self, td_ms: f32) void {
                 const tdv: VecTpy = asVec(td_ms / 1000); //example time delta
                 const xd: VecTpy = asVec(0);
                 if (self.phx) |phx| {
@@ -67,6 +78,16 @@ pub fn InertiaPack(VecTpy: type) type {
                     self.yd = self.yd + tdv * ydd;
                 }
             }
+
+            // inline fn simConstStep(self: *Self) void {
+            //     const tdv: VecTpy = comptime asV(smaller_step / 1000);
+            //     const xd: VecTpy = asVec(0);
+            //     if (self.phx) |phx| {
+            //         const ydd = (self.x + phx.k3 * xd - self.y - phx.k1 * self.yd) / phx.k2;
+            //         self.y = self.y + tdv * self.yd;
+            //         self.yd = self.yd + tdv * ydd;
+            //     }
+            // }
 
             pub fn init(spot: VecTpy) Self {
                 return Self{
