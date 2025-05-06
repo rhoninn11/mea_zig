@@ -56,7 +56,8 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     p1.addToTheWorld(&world);
 
     const cube_mesh = rl.genMeshCube(0.5, 0.5, 0.5);
-    defer rl.unloadMesh(cube_mesh);
+    const cube_model = try rl.loadModelFromMesh(cube_mesh);
+    defer rl.unloadModel(cube_model);
     const cube_material = rl.loadMaterialDefault() catch unreachable;
     defer rl.unloadMaterial(cube_material);
 
@@ -143,8 +144,17 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     };
     // ---
 
-    const thk = 4;
-    const deltas: []const math.ivec2 = &.{ .{ 0, thk }, .{ 0, -thk }, .{ thk, 0 }, .{ -thk, 0 } };
+    const thk = 2;
+    const deltas: []const math.ivec2 = &.{
+        .{ 0, thk },
+        .{ thk, thk },
+        .{ thk, 0 },
+        .{ thk, -thk },
+        .{ 0, -thk },
+        .{ -thk, -thk },
+        .{ -thk, 0 },
+        .{ -thk, thk },
+    };
     const zero = rl.Vector3.zero();
     while (exiter.toContinue()) {
         const delta_ms = timeline.tickMs();
@@ -177,11 +187,12 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             rl.drawText(p1.text[0..64], 10, 34, 24, THEME[1]);
             rl.drawTextEx(font, p1.text[0..64], rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
 
-            rl.drawTextEx(font, fonts.test_string, rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
+            const spot: math.ivec2 = .{ 10, 160 };
             for (deltas) |delta| {
-                rl.drawText(fonts.test_string, 10 + delta[0], 364 + delta[1], 34, THEME[0]);
+                const dst = spot + delta;
+                rl.drawText(fonts.test_string, dst[0], dst[1], 34, THEME[0]);
             }
-            rl.drawText(fonts.test_string, 10, 364, 34, THEME[1]);
+            rl.drawText(fonts.test_string, spot[0], spot[1], 34, THEME[1]);
 
             exiter.draw();
             if (p1.operation_mode == .edit) {
@@ -210,6 +221,11 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             parametric.repr(zero);
             // chessboard.board.repr();
             world.repr();
+
+            for (0..p1.spot_num) |i| {
+                const redner_spot = p1.spots[i];
+                rl.drawModel(cube_model, redner_spot, 0.5, rl.Color.purple);
+            }
             // cube_param.repr(zero);
 
             // rl.drawMes
