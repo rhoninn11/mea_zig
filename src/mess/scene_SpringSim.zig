@@ -79,7 +79,7 @@ fn log_slice_info(slice: []f32) void {
     }
 }
 
-const phys = @import("../mods/phys.zig");
+const phys = @import("phys.zig");
 const Iner = phys.Inertia;
 const PhysInprint = phys.PhysInprint;
 const Exiter = @import("../mods/elements.zig").Exiter;

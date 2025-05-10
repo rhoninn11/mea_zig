@@ -3,7 +3,7 @@ const rl = @import("raylib");
 const math = @import("math.zig");
 const view = @import("view.zig");
 const collision = @import("sphere.zig");
-const phys = @import("../mods/phys.zig");
+const phys = @import("phys.zig");
 const sound = @import("sound.zig");
 
 const boards = @import("boards.zig");
@@ -50,7 +50,8 @@ pub const EditorMemory = struct {
     }
 };
 
-//Cyli co o konceptach można myśleć w taki bardziej abstrakcyjny sposób
+//Czyli "Co o konceptach można myśleć w taki bardziej abstrakcyjny sposób?"
+//Nie mniej jednak w tym edytorze mógłoby się przydać jakieś ui:D
 pub const Editor = struct {
     const Self = @This();
     memory: ?*EditorMemory = null,

@@ -2,14 +2,11 @@ const std = @import("std");
 const rl = @import("raylib");
 const math = @import("math.zig");
 
-// w sumie to zapytełem się llma o jakieś zadanie
-// aby było związne z gamedevem i
-
+// for now just simple data, but still not implemented xD
+// Maybe i can achieve my goal using just balls?
 const Cube = struct {
     pos: math.fvec3 = @splat(0),
     size: math.fvec3 = @splat(1),
-    // but i thing it also should have rotation
-    // axis aligned box is special case
 };
 
 pub const Sphere = struct {
@@ -143,3 +140,9 @@ fn messure_pref() !void {
     const icon = Colide.asUnicode(colide);
     std.debug.print("+++ {s}x{s} - {d}K in 1 s", .{ icon, icon, count * 10 });
 }
+
+// tak na pradę ten moduł jest związany z kolizją, chciałbym go trochę rozubować
+// Ale czy kolizje bloków to jest krok, który właśnie chciałbym dodać?
+// W międzyczasie wpadłem na pomysł, na implementację prostszego rozwiązania
+// Dla któego teraz konkretnie nie mam zastosowania, ale...
+// Chciałym zrobić kolizje stożkową przeznaczoną dla frastrum

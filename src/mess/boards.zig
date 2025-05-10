@@ -23,6 +23,13 @@ const Size2D = struct {
 
 pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
     const b_size = Size2D.init(x_dim, z_dim);
+
+    const hmm = enum {
+        x,
+        y,
+        z,
+    };
+    _ = hmm;
     return struct {
         const Self = @This();
         pub const Sz: Size2D = b_size;
@@ -32,6 +39,7 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
         x_v: []f32,
         y_v: []f32,
         z_v: []f32,
+        fields: [Sz.len]math.fvec3 = undefined,
         level: f32 = -0.5,
 
         pub fn init(a: Allocator) !Self {
@@ -42,7 +50,19 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
                 .y_v = try a.alloc(f32, n),
                 .z_v = try a.alloc(f32, n),
             };
-            prefab.initPos();
+            const sz = Self.Sz;
+            for (0..sz.len) |idx| {
+                var pos: math.fvec3 = undefined;
+                const x_idx = @mod(idx, sz.x_dim);
+                const z_idx = @divFloor(idx, sz.z_dim);
+                pos[0] = @floatFromInt(x_idx);
+                pos[2] = @floatFromInt(z_idx);
+                pos[1] = prefab.level;
+                prefab.fields[idx] = pos;
+            }
+
+            // math.center(self.x_v);
+            // math.center(self.z_v);
             return prefab;
         }
 
@@ -51,25 +71,6 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
             for (slices) |s| {
                 self.alloc.free(s);
             }
-        }
-
-        fn initPos(self: *Self) void {
-            const sz = Self.Sz;
-            for (0..sz.len) |x_idx|
-                self.x_v[x_idx] = @floatFromInt(@mod(x_idx, sz.x_dim));
-
-            const dz = sz.z_dim;
-            for (0..sz.z_dim) |z_idx| {
-                const row_start = z_idx * dz;
-                const row_value: f32 = @floatFromInt(z_idx);
-                const row_memory = self.z_v[row_start .. row_start + dz];
-                @memset(row_memory, row_value);
-            }
-
-            @memset(self.y_v, self.level);
-
-            math.center(self.x_v);
-            math.center(self.z_v);
         }
 
         pub fn debugInfo(self: *const Self) void {
@@ -95,6 +96,7 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
         alloc: Allocator,
         board: Grid,
         scale: rl.Vector3 = math.asRlvec3(.{ Sz.x_dim, 1, Sz.z_dim }),
+        scale_: math.fvec3 = .{ Sz.x_dim, 1, Sz.z_dim },
         col: []rl.Color,
         mesh: ?rl.Mesh = null,
         material: ?rl.Material = null,
@@ -107,6 +109,9 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
                 .col = try a.alloc(rl.Color, n),
             };
             prefab.calcColor();
+            for (0..Sz.len) |i| {
+                prefab.board.fields[i] *= prefab.scale_;
+            }
             return prefab;
         }
 
@@ -130,11 +135,10 @@ pub fn Chessboard(x_dim: u32, z_dim: u32) type {
 
         pub fn repr(self: *Self) void {
             const b: *Grid = &self.board;
-            for (b.x_v, b.y_v, b.z_v, self.col) |x, y, z, c| {
-                var pos = rl.Vector3.init(x, y, z);
-                pos = pos.multiply(self.scale);
-                const cube_size = rl.Vector3.init(1, 0.33, 1);
-                rl.drawCubeWiresV(pos, cube_size, c);
+            const cube_size = rl.Vector3.init(1, 0.33, 1);
+            for (b.fields, self.col) |xyz, c| {
+                const pos = xyz;
+                rl.drawCubeWiresV(math.asRlvec3(pos), cube_size, c);
 
                 // const transform = rl.Matrix.translate(pos.x, pos.y, pos.z);
                 // rl.drawMesh(self.mesh.?, self.material.?, transform);
@@ -155,6 +159,7 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
     const BoardTpy = Chessboard(x_dim, z_dim);
     return struct {
         const Self = @This();
+        pub const _size = BoardTpy.Sz;
         alloc: Allocator,
 
         board: BoardTpy,
@@ -237,6 +242,8 @@ pub fn WorldNavigBoard() type {
         board: BoardBase,
         alloc: Allocator,
         phase: f32 = 0,
+        idx_x: u8 = 0,
+        idx_z: u8 = 0,
 
         pub fn init(alloc: Allocator) !Self {
             return Self{
@@ -276,26 +283,43 @@ pub fn WorldNavigBoard() type {
             // wraz z ewolucją świata, wektory ruchmu mogą ulegać zmianie, na podstawie potencjalnego
             // self.state
             //
-            _ = self;
-            return switch (move) {
-                .up => math.asRlvec3(Self.Forward),
-                .down => math.asRlvec3(Self.Backward),
-                .left => math.asRlvec3(Self.Left),
-                .right => math.asRlvec3(Self.Right),
-                .no_move => rl.Vector3.zero(),
+
+            const working_size = BoardBase._size;
+            const allow = switch (move) {
+                .up => self.idx_x < working_size.x_dim - 1,
+                .down => self.idx_x > 0,
+                .left => self.idx_z > 0,
+                .right => self.idx_z < working_size.z_dim - 1,
+                .no_move => false,
             };
+
+            const grid_data = &self.board.board.board;
+            if (allow) {
+                const axis = switch (move) {
+                    .up, .down => &self.idx_x,
+                    .left, .right => &self.idx_z,
+                    else => undefined,
+                };
+
+                std.debug.print("{d} {s}\n", .{ axis.*, @tagName(move) });
+                switch (move) {
+                    .up, .right => axis.* += 1,
+                    .left, .down => axis.* -= 1,
+                    else => {},
+                }
+            }
+
+            // std.debug.print("hmm {d} chmm {d}\n", .{ self.idx_x, self.idx_z });
+            const field_id = working_size.idx(self.idx_x, self.idx_z);
+            const pos = grid_data.fields[field_id];
+            return math.asRlvec3(pos);
         }
 
         pub fn traverse(self: *Self, pamperek: *Player, move: Move) rl.Vector3 {
-            const delta = self.decodeMove(move);
-            var travel_to = pamperek.pos;
-            const dst = travel_to.add(delta);
+            const new_pos = self.decodeMove(move);
             self.phase = pamperek.cam_phase;
 
-            if (self.allowMove(dst)) {
-                travel_to = dst;
-            }
-            return travel_to;
+            return new_pos;
         }
 
         pub fn deinit(self: *Self) void {
