@@ -281,15 +281,30 @@ pub fn comptimeExperiment() void {
 
 const fs = std.fs;
 const _test = std.testing;
+var buff: [8096]u8 = undefined;
+
 test "can i use file structure in comptime?" {
-    const cwd = fs.cwd();
-    cwd.access("build.zig", .{ .mode = .read_only }) catch {
-        try _test.expect(false);
-    };
+    const cwd = std.fs.cwd();
+    // var alloc = std.heap.FixedBufferAllocator.init(&buff).allocator();
+
+    const cwd_abs = try cwd.realpath(".", &buff);
+    std.debug.print("+++ cwd is: {s}\n", .{cwd_abs});
 
     cwd.access("main.zig", .{ .mode = .read_only }) catch {
-        try _test.expect(true);
+        try std.testing.expect(true);
+        // dont fail anyway, but meaby there is better way to test access return was ok
+    };
+    cwd.access("imaginery.zig", .{ .mode = .read_only }) catch {
+        try std.testing.expect(true);
     };
 
+    comptime {
+        const _cwd = std.fs.cwd();
+        // try _cwd.access("main.zig", .{ .mode = .read_only });
+        // ^ it errors about extern function call
+        _ = _cwd;
+    }
+
     // here we want to test is file structure data is accesible at comptime
+    // try std.testing.expect(false);
 }

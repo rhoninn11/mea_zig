@@ -46,6 +46,8 @@ fn slideOnAxis(axis: math.fvec3, amount: f32) rl.Matrix {
     return rlTranslate(axis * amountV);
 }
 
+// TODO: for now as tile distance get farther, lack of camera following is oviously noticible,
+// would be nice to fix it:D
 fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, timeline: *Timeline) !void {
     _ = sound.getBam();
     // player

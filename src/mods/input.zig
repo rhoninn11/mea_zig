@@ -168,9 +168,9 @@ pub fn charKey(char: u8) rl.KeyboardKey {
 
 test "comptime find keys" {
     const char_a = 'a';
-    const result_a: rl.KeyboardKey = rl.KeyboardKey.key_a;
+    const result_a: rl.KeyboardKey = rl.KeyboardKey.a;
     const char_b = 'b';
-    const result_b: rl.KeyboardKey = rl.KeyboardKey.key_b;
+    const result_b: rl.KeyboardKey = rl.KeyboardKey.b;
 
     var tmp = charKey(char_a);
     try std.testing.expect(tmp == result_a);
@@ -181,7 +181,7 @@ test "comptime find keys" {
 test "find multiple keys" {
     const rlk = rl.KeyboardKey;
     const chars = "qwer";
-    const enum_keys: []const rl.KeyboardKey = &.{ rlk.key_q, rlk.key_w, rlk.key_e, rlk.key_r };
+    const enum_keys: []const rl.KeyboardKey = &.{ rlk.q, rlk.w, rlk.e, rlk.r };
 
     // const char_keys: []const u8 = "qwer";
     const found_keys: []const rl.KeyboardKey = &charKeyArray(chars, 4);

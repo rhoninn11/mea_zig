@@ -2,18 +2,19 @@ const std = @import("std");
 const colisionTesting = @import("mess/sphere.zig");
 
 const examples = enum {
-    rl_unified,
+    using_rl,
     using_json,
     using_proto,
     using_comptime,
     using_fs,
+    using_cli,
 };
 
 pub fn main() !void {
-    const selector: examples = .rl_unified;
+    const selector: examples = .using_cli;
     const core = @import("mess/core.zig");
     switch (selector) {
-        .rl_unified => {
+        .using_rl => {
             std.debug.print("raylib experiments", .{});
             core.DeployInMemory();
         },
@@ -33,10 +34,14 @@ pub fn main() !void {
             const fs_exp = @import("explore/filesystem.zig");
             try fs_exp.fs_explorer();
         },
+        .using_cli => {
+            @import("explore/cli.zig").program();
+        },
     }
 }
 
 test {
     std.testing.refAllDecls(@This());
     std.testing.refAllDecls(colisionTesting);
+    std.testing.refAllDecls(@import("../src/explore/precompile/comptime.zig"));
 }
