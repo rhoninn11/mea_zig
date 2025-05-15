@@ -56,6 +56,16 @@ pub fn InertiaPack(VecTpy: type) type {
             phx: ?InertiaCfg = null,
             const smaller_step = 25.0;
 
+            pub fn init(spot: VecTpy) Self {
+                return Self{
+                    .x = spot,
+                    .y = spot,
+                };
+            }
+            pub fn zero(phx_cfg: InertiaCfg) Self {
+                return Self{ .x = asVec(0), .y = asVec(0), .phx = phx_cfg };
+            }
+
             pub inline fn simulate(self: *Self, prograss_ms: f32) void {
                 //crash app if optimalization is needed
                 // std.debug.assert(prograss_ms < 100);
@@ -89,18 +99,11 @@ pub fn InertiaPack(VecTpy: type) type {
             //     }
             // }
 
-            pub fn init(spot: VecTpy) Self {
-                return Self{
-                    .x = spot,
-                    .y = spot,
-                };
-            }
-
-            pub fn setTarget(self: *Self, new_target: VecTpy) void {
+            pub fn in(self: *Self, new_target: VecTpy) void {
                 self.x = new_target;
             }
 
-            pub fn getResutl(self: *Self) VecTpy {
+            pub fn out(self: *Self) VecTpy {
                 return self.y;
             }
         };

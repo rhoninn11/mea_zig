@@ -147,18 +147,22 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     // ---
 
     const thk = 2;
-    const deltas: []const math.ivec2 = &.{
-        .{ 0, thk },
-        .{ thk, thk },
-        .{ thk, 0 },
-        .{ thk, -thk },
-        .{ 0, -thk },
-        .{ -thk, -thk },
-        .{ -thk, 0 },
-        .{ -thk, thk },
-    };
+    // const deltas: []const math.ivec2 = &.{
+    //     .{ 0, thk },
+    //     .{ thk, thk },
+    //     .{ thk, 0 },
+    //     .{ thk, -thk },
+    //     .{ 0, -thk },
+    //     .{ -thk, -thk },
+    //     .{ -thk, 0 },
+    //     .{ -thk, thk },
+    // };
+    const d_text = fonts.DubbleFont(thk){};
     const zero = rl.Vector3.zero();
     while (exiter.toContinue()) {
+        var buf_len: u16 = 0;
+        @memset(text_buffer, 0);
+
         const delta_ms = timeline.tickMs();
         p1.update(delta_ms);
         exiter.update(delta_ms);
@@ -170,6 +174,11 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         dynamic.pos[0] = 3 * axis_pos;
         const text_value = axis_pos;
         const text = try std.fmt.bufPrintZ(text_buffer, "simple text: {d}", .{text_value});
+        buf_len += @intCast(text.len);
+        buf_len += 1;
+
+        const o = p1.pos_physout;
+        const debug_text = try std.fmt.bufPrintZ(text_buffer[buf_len..], " x: {d:.2}\n y: {d:.2}\n z: {d:.2}", .{ o.x, o.y, o.z });
 
         t_on_axis = slideOnAxis(sh_axis, osc_slice[0].sample());
         t_on_axis = t_on_axis.multiply(rl.Matrix.translate(0, 0, -4));
@@ -185,16 +194,14 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
         rl.clearBackground(THEME[1]);
         defer {
             // draw ui at the end
+            d_text.repr(text, .{ 10, 10 }, 24, THEME);
             rl.drawText(text, 10, 10, 24, THEME[1]);
             rl.drawText(p1.text[0..64], 10, 34, 24, THEME[1]);
+            d_text.repr(debug_text, .{ 10, 44 }, 24, THEME);
             rl.drawTextEx(font, p1.text[0..64], rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
 
-            const spot: math.ivec2 = .{ 10, 160 };
-            for (deltas) |delta| {
-                const dst = spot + delta;
-                rl.drawText(fonts.test_string, dst[0], dst[1], 34, THEME[0]);
-            }
-            rl.drawText(fonts.test_string, spot[0], spot[1], 34, THEME[1]);
+            //unicode tester
+            d_text.repr(fonts.test_string, .{ 10, 160 }, 34, THEME);
 
             exiter.draw();
             if (p1.operation_mode == .edit) {

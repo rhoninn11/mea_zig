@@ -167,7 +167,7 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         life_time_ms += @floatCast(delta_ms);
 
         const mouse_pose = input.sample_mouse();
-        pointer_inert.setTarget(mouse_pose);
+        pointer_inert.in(mouse_pose);
 
         for (&letter_keys) |*key_from_kb| key_from_kb.collectiInput();
         for (&skill_keys, 0..) |*skill_key, i| {
@@ -178,13 +178,13 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         exit.collectInput();
 
         if (skill_signals[2].get()) sldr.down() else if (skill_signals[3].get()) sldr.up();
-        if (skill_signals[0].get()) inerts[sldr.pos].setTarget(mouse_pose);
+        if (skill_signals[0].get()) inerts[sldr.pos].in(mouse_pose);
 
         for (inerts) |inertia_point| {
             inertia_point.simulate(delta_ms);
         }
-        lin_spc.a = inerts[0].getResutl();
-        lin_spc.b = inerts[1].getResutl();
+        lin_spc.a = inerts[0].out();
+        lin_spc.b = inerts[1].out();
 
         my_sim.update(delta_ms);
         // my_sim.sample_circles(lin_spc);
@@ -201,7 +201,7 @@ fn _simulation(alloc: std.mem.Allocator, win: *core.RLWindow) !void {
         repr.frame(lin_spc.sample(1), sldr.pos == 1);
 
         rl.drawText(info, 50, 50, 20, THEME[1]);
-        const tmp = pointer_inert.getResutl();
+        const tmp = pointer_inert.out();
         const pointer_pos = rl.Vector3.init(tmp[0], tmp[1], 0);
         rl.drawCircle3D(pointer_pos, 10, rl.Vector3.init(0, 0, 0), 0, rl.Color.dark_blue);
         // img_box.drawRepr();

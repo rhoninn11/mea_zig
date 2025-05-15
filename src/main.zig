@@ -11,7 +11,7 @@ const examples = enum {
 };
 
 pub fn main() !void {
-    const selector: examples = .using_cli;
+    const selector: examples = .using_rl;
     const core = @import("mess/core.zig");
     switch (selector) {
         .using_rl => {

@@ -105,6 +105,10 @@ pub const Player = struct {
     const Self = @This();
 
     pos: rl.Vector3,
+    pos_physin: rl.Vector3 = undefined,
+    pos_physout: rl.Vector3 = undefined,
+    pos_phys: Inertia3D = Inertia3D.zero(Cfg3D.default()),
+
     camera: rl.Camera,
     colider: Sphere,
     osc: Osc = Osc{},
@@ -122,18 +126,12 @@ pub const Player = struct {
     jump_speed: f32 = 0,
 
     move_action: Move = Move.no_move,
-    cam_target: Rlvec3 = Rlvec3{ .x = 0, .y = 0, .z = 0 },
-    cam_inert_targ: Inertia3D = Inertia3D{
-        .x = @splat(0),
-        .y = @splat(0),
-        .phx = Cfg3D.default(),
-    },
+    cam_target: rl.Vector3 = Rlvec3{ .x = 0, .y = 0, .z = 0 },
+    cam_inert_targ: Inertia3D = Inertia3D.zero(Cfg3D.default()),
+
     cam_phase: f32 = math.PI,
-    cam_inert_phase: Inertia1D = .{
-        .x = .{0},
-        .y = .{0},
-        .phx = Cfg1D.default(),
-    },
+    cam_inert_phase: Inertia1D = Inertia1D.zero(Cfg1D.default()),
+
     world: ?*World = null,
     editor: Editor = Editor{},
     operation_mode: Modes = Modes.navig,
@@ -145,6 +143,8 @@ pub const Player = struct {
         var p1 = Player{
             .camera = cam,
             .pos = cam.target,
+            .pos_physout = cam.target,
+            .pos_physin = cam.target,
             .colider = Sphere{
                 .pos = math.asFvec3(cam.target),
                 .size = 0.3,
@@ -201,16 +201,23 @@ pub const Player = struct {
         }
     }
 
-    inline fn inputJump(self: *Player) void {
+    fn inputJump(self: *Player) void {
         const jumpKey = rl.KeyboardKey.space;
         const jump_action = rl.isKeyPressed(jumpKey);
         if (jump_action and self.jump_state == .ground) {
             self.jump_state = .launching;
             self.spawnAction();
-            rl.playSound(sound.getBam().*);
         }
     }
 
+    fn inputBuild(self: *Player) void {
+        const build_key = rl.KeyboardKey.space;
+        const build_action = rl.isKeyPressed(build_key);
+        if (build_action) {
+            self.spawnAction();
+            rl.playSound(sound.getBam().*);
+        }
+    }
     const MoveKey = struct {
         key: rl.KeyboardKey,
         move: Move,
@@ -282,17 +289,6 @@ pub const Player = struct {
         std.debug.print("spawned at {}\n", .{spawn_point});
     }
 
-    fn moveSpatial(self: *Player) void {
-        // Q: how now i have connection with board i could move on its fields
-        // A: now world generate new position, where player will be placed on
-
-        var world = self.world.?;
-        var next_pos = world.traverse(self, self.move_action);
-        next_pos.y = self.jump_level;
-
-        self.pos = next_pos;
-    }
-
     fn simJump(self: *Player, dt_ms: f32) void {
         const dt_s = dt_ms * 0.001;
         const acc = 20;
@@ -330,13 +326,13 @@ pub const Player = struct {
     fn simCam(self: *Player, dt: f32) void {
         const new_targ_pos = math.asFvec3(self.pos);
         const inert_tg = &self.cam_inert_targ;
-        inert_tg.setTarget(new_targ_pos);
+        inert_tg.in(new_targ_pos);
         inert_tg.simulate(dt);
 
         const inert_ph = &self.cam_inert_phase;
-        inert_ph.setTarget(.{self.cam_phase});
+        inert_ph.in(.{self.cam_phase});
         inert_ph.simulate(dt);
-        const delayed_phase = inert_ph.getResutl();
+        const delayed_phase = inert_ph.out();
 
         const away: f32 = 9;
         const hight: f32 = 3.51;
@@ -344,8 +340,26 @@ pub const Player = struct {
         const planar_pos = osc_calc.sample2D() * math.fvec2{ away, away };
         const new_cam_pos = rl.Vector3.init(planar_pos[0], hight, planar_pos[1]);
 
-        self.camera.target = math.asRlvec3(inert_tg.getResutl());
+        self.camera.target = math.asRlvec3(inert_tg.out());
         self.camera.position = new_cam_pos;
+    }
+
+    fn moveSpatial(self: *Player) void {
+        // Q: how now i have connection with board i could move on its fields
+        // A: now world generate new position, where player will be placed on
+
+        var world = self.world.?;
+        const pos_next = world.traverse(self, self.move_action);
+        self.pos_physin = pos_next;
+
+        self.pos = self.pos_physout;
+        self.pos.y = self.jump_level;
+    }
+
+    fn simMove(self: *Player, dt: f32) void {
+        self.pos_phys.in(math.asFvec3(self.pos_physin));
+        self.pos_phys.simulate(dt);
+        self.pos_physout = math.asRlvec3(self.pos_phys.out());
     }
 
     pub fn update(self: *Player, dt: f32) void {
@@ -354,12 +368,14 @@ pub const Player = struct {
             Modes.edit => self.inputText(),
             Modes.navig => {
                 self.inputJump();
+                self.inputBuild();
                 self.inputMove();
                 self.inputCameraTurn();
             },
             else => {},
         }
         self.simJump(dt);
+        self.simMove(dt);
         self.moveSpatial();
         self.simCam(dt);
 
