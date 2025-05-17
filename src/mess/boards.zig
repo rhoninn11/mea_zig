@@ -21,35 +21,17 @@ const Size2D = struct {
     }
 };
 
-pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
+pub fn Grid2D(x_dim: u8, z_dim: u8) type {
     const b_size = Size2D.init(x_dim, z_dim);
 
-    const hmm = enum {
-        x,
-        y,
-        z,
-    };
-    _ = hmm;
     return struct {
         const Self = @This();
         pub const Sz: Size2D = b_size;
 
-        alloc: Allocator,
-
-        x_v: []f32,
-        y_v: []f32,
-        z_v: []f32,
         fields: [Sz.len]math.fvec3 = undefined,
-        level: f32 = -0.5,
 
-        pub fn init(a: Allocator) !Self {
-            const n = Self.Sz.len;
-            var prefab = Self{
-                .alloc = a,
-                .x_v = try a.alloc(f32, n),
-                .y_v = try a.alloc(f32, n),
-                .z_v = try a.alloc(f32, n),
-            };
+        pub fn init() Self {
+            var prefab = Self{};
             const sz = Self.Sz;
             for (0..sz.len) |idx| {
                 var pos: math.fvec3 = undefined;
@@ -57,7 +39,7 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
                 const z_idx = @divFloor(idx, sz.z_dim);
                 pos[0] = @floatFromInt(x_idx);
                 pos[2] = @floatFromInt(z_idx);
-                pos[1] = prefab.level;
+                pos[1] = 0;
                 prefab.fields[idx] = pos;
             }
 
@@ -66,17 +48,19 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
             return prefab;
         }
 
-        pub fn deinit(self: *Self) void {
-            const slices = [3][]f32{ self.x_v, self.y_v, self.z_v };
-            for (slices) |s| {
-                self.alloc.free(s);
-            }
-        }
-
         pub fn debugInfo(self: *const Self) void {
-            const x_mm = math.minMax(self.x_v);
-            const y_mm = math.minMax(self.y_v);
-            const z_mm = math.minMax(self.z_v);
+            var x_v: [Sz.len]f32 = undefined;
+            var y_v: [Sz.len]f32 = undefined;
+            var z_v: [Sz.len]f32 = undefined;
+            for (0..Sz.len) |i| {
+                const val = self.fields[i];
+                x_v[i] = val[0];
+                y_v[i] = val[1];
+                z_v[i] = val[2];
+            }
+            const x_mm = math.minMax(&x_v);
+            const y_mm = math.minMax(&y_v);
+            const z_mm = math.minMax(&z_v);
             std.debug.print("+++ X {d} {d}\n", .{ x_mm[0], x_mm[1] });
             std.debug.print("+++ Y {d} {d}\n", .{ y_mm[0], y_mm[1] });
             std.debug.print("+++ Z {d} {d}\n", .{ z_mm[0], z_mm[1] });
@@ -89,35 +73,29 @@ pub fn SquareBoard(x_dim: u8, z_dim: u8) type {
 // it could be also other type of boards and player could move
 // along its fields
 pub fn Chessboard(x_dim: u32, z_dim: u32) type {
-    const Grid = SquareBoard(x_dim, z_dim);
+    const Grid = Grid2D(x_dim, z_dim);
     return struct {
         const Self = @This();
         pub const Sz = Grid.Sz;
-        alloc: Allocator,
         board: Grid,
-        scale: rl.Vector3 = math.asRlvec3(.{ Sz.x_dim, 1, Sz.z_dim }),
-        scale_: math.fvec3 = .{ Sz.x_dim, 1, Sz.z_dim },
-        col: []rl.Color,
+        scale: math.fvec3 = .{ Sz.x_dim, 1, Sz.z_dim },
+        translation: math.fvec3 = .{ -32, -0.5, -32 },
+        col: [Sz.len]rl.Color,
+
         mesh: ?rl.Mesh = null,
         material: ?rl.Material = null,
 
-        pub fn init(a: Allocator) !Self {
-            const n = Self.Sz.len;
+        pub fn init() Self {
             var prefab = Self{
-                .alloc = a,
-                .board = try Grid.init(a),
-                .col = try a.alloc(rl.Color, n),
+                .board = Grid.init(),
+                .col = undefined,
             };
-            prefab.calcColor();
             for (0..Sz.len) |i| {
-                prefab.board.fields[i] *= prefab.scale_;
+                prefab.board.fields[i] *= prefab.scale;
+                prefab.board.fields[i] += prefab.translation;
             }
+            prefab.calcColor();
             return prefab;
-        }
-
-        pub fn deinit(self: *Self) void {
-            self.alloc.free(self.col);
-            self.board.deinit();
         }
 
         fn calcColor(self: *Self) void {
@@ -159,7 +137,7 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
     const BoardTpy = Chessboard(x_dim, z_dim);
     return struct {
         const Self = @This();
-        pub const _size = BoardTpy.Sz;
+        pub const Sz = BoardTpy.Sz;
         alloc: Allocator,
 
         board: BoardTpy,
@@ -169,7 +147,7 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
         pub fn init(alloc: Allocator) !Self {
             var prefab = Self{
                 .alloc = alloc,
-                .board = try BoardTpy.init(alloc),
+                .board = BoardTpy.init(),
                 .sim = try alloc.alloc(Osc, BoardTpy.Sz.len),
                 .wobblyAmp = 0.33,
             };
@@ -181,9 +159,8 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
         fn bootstrapSim(self: *Self) void {
             const brd = &self.board.board;
             for (0..BoardTpy.Sz.len) |i| {
-                const x = brd.x_v[i];
-                const y = brd.z_v[i];
-                var total = rl.Vector2.init(x * 2, y * 2).length();
+                const pos = brd.fields[i];
+                var total = rl.Vector2.init(pos[0] * 2, pos[2] * 2).length();
                 if (total >= 1.0) {
                     total = 1;
                 }
@@ -196,7 +173,6 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
 
         pub fn deinit(self: *Self) void {
             self.alloc.free(self.sim);
-            self.board.deinit();
         }
 
         pub fn update(self: *Self, delta_ms: f32) void {
@@ -206,8 +182,8 @@ pub fn WobblyChessboard(x_dim: u32, z_dim: u32) type {
             for (0..len) |i| {
                 self.sim[i].update(delta_ms);
                 aplied[i] = self.sim[i].sample() - 0.5;
+                brd.fields[i][1] = aplied[i];
             }
-            @memcpy(brd.y_v, aplied[0..len]);
         }
 
         pub fn oscInfo(self: *Self) void {
@@ -284,7 +260,7 @@ pub fn WorldNavigBoard() type {
             // self.state
             //
 
-            const working_size = BoardBase._size;
+            const working_size = BoardBase.Sz;
             const allow = switch (move) {
                 .up => self.idx_x < working_size.x_dim - 1,
                 .down => self.idx_x > 0,
