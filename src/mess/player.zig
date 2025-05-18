@@ -101,8 +101,42 @@ pub const JumpState = enum {
     landing,
 };
 
+const d_default = @import("dubble.zig").default;
+const PlayerUI = struct {
+    const Self = @This();
+
+    texts: [4][]const u8 = .{
+        "jeden", "dwa", "trzy", "cztery",
+    },
+    width: f32 = 100,
+    height: f32 = 100,
+
+    pub fn repr(self: *Self, p1: *Player) void {
+        const general_theme = @import("repr.zig").theme;
+        const border = self.width * 0.2;
+        const num = self.texts.len;
+        const total_w = self.width * num + border * (num + 1);
+        const total_h = self.height + border * 2;
+
+        const pos: math.ivec2 = .{ 0, 0 };
+        const size: math.ivec2 = .{ @intFromFloat(total_w), @intFromFloat(total_h) };
+        d_default.rect.repr(pos, size, general_theme);
+
+        for (0..num) |i| {
+            const i_float: f32 = @floatFromInt(i);
+            const x_pos: f32 = border + i_float * (border + self.width);
+            const frag_pos: math.ivec2 = .{ @intFromFloat(x_pos), @intFromFloat(border) };
+            const frag_size: math.ivec2 = .{ @intFromFloat(self.width), @intFromFloat(self.height) };
+            d_default.rect.repr(frag_pos, frag_size, general_theme);
+        }
+
+        d_default.text.repr(p1.text[0..64], pos, 24, general_theme);
+    }
+};
+
 pub const Player = struct {
     const Self = @This();
+    ui: PlayerUI = PlayerUI{},
 
     pos: rl.Vector3,
     pos_physin: rl.Vector3 = undefined,
@@ -175,21 +209,16 @@ pub const Player = struct {
         std.debug.print("+++ unicode? {}\n", .{char.as_rune});
         // assuming big
 
+        // TODO: check if unicodes are properly handled
         for (char.as_array, 0..) |byte, i| {
             if (byte != 0x00) {
                 std.debug.print("({d})", .{i});
+                // WARN: while chars are unicodes cursor can espace memory
                 self.text[self.cursor] = byte;
                 self.cursor += 1;
             }
         }
 
-        // works only for extedned asci, higher unicodes are missing...
-        // const test_label = "ñòóôõö÷\nøùúûüýþÿó";
-        // var idx: u8 = 0;
-        // for (test_label) |byte| {
-        //     self.text[idx] = byte;
-        //     idx += 1;
-        // }
         return;
     }
 
@@ -324,6 +353,8 @@ pub const Player = struct {
     }
 
     fn simCam(self: *Player, dt: f32) void {
+        // while pos also has inetria camera do not need to be dumped
+        // eventually could be faster - to not look wierd
         const new_targ_pos = math.asFvec3(self.pos);
         const inert_tg = &self.cam_inert_targ;
         inert_tg.in(new_targ_pos);
@@ -339,9 +370,11 @@ pub const Player = struct {
         const osc_calc = Osc{ .phase = delayed_phase[0] };
         const planar_pos = osc_calc.sample2D() * math.fvec2{ away, away };
         const new_cam_pos = rl.Vector3.init(planar_pos[0], hight, planar_pos[1]);
+        var offset = self.pos;
+        offset.y = 0;
 
-        self.camera.target = math.asRlvec3(inert_tg.out());
-        self.camera.position = new_cam_pos;
+        self.camera.target = self.pos;
+        self.camera.position = new_cam_pos.add(offset);
     }
 
     fn moveSpatial(self: *Player) void {

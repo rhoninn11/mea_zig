@@ -9,7 +9,7 @@ const RenderMedium = core.RenderMedium;
 const Timeline = @import("../mods/time.zig").Timeline;
 const elems = @import("../mods/elements.zig");
 const Exiter = elems.Exiter;
-const THEME = @import("../mods/core/repr.zig").Theme;
+const THEME = @import("repr.zig").theme;
 const player = @import("player.zig");
 const sound = @import("sound.zig");
 
@@ -146,18 +146,7 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
     };
     // ---
 
-    const thk = 2;
-    // const deltas: []const math.ivec2 = &.{
-    //     .{ 0, thk },
-    //     .{ thk, thk },
-    //     .{ thk, 0 },
-    //     .{ thk, -thk },
-    //     .{ 0, -thk },
-    //     .{ -thk, -thk },
-    //     .{ -thk, 0 },
-    //     .{ -thk, thk },
-    // };
-    const d_text = fonts.DubbleFont(thk){};
+    const d_text = @import("dubble.zig").default.text;
     const zero = rl.Vector3.zero();
     while (exiter.toContinue()) {
         var buf_len: u16 = 0;
@@ -196,16 +185,14 @@ fn chessboard_arena(alloc: Allocator, medium: RenderMedium, exiter: *Exiter, tim
             // draw ui at the end
             d_text.repr(text, .{ 10, 10 }, 24, THEME);
             rl.drawText(text, 10, 10, 24, THEME[1]);
-            rl.drawText(p1.text[0..64], 10, 34, 24, THEME[1]);
             d_text.repr(debug_text, .{ 10, 44 }, 24, THEME);
-            rl.drawTextEx(font, p1.text[0..64], rl.Vector2.init(10, 69), 34, 0.01, THEME[1]);
 
             //unicode tester
             d_text.repr(fonts.test_string, .{ 10, 160 }, 34, THEME);
 
             exiter.draw();
             if (p1.operation_mode == .edit) {
-                rl.drawCircle(20, 200, 20, THEME[0]);
+                p1.ui.repr(&p1);
             }
             medium.end();
         }

@@ -220,6 +220,7 @@ pub fn WorldNavigBoard() type {
         phase: f32 = 0,
         idx_x: u8 = 0,
         idx_z: u8 = 0,
+        debug_pos: math.fvec3 = .{ 0, 1, 0 },
 
         pub fn init(alloc: Allocator) !Self {
             return Self{
@@ -288,6 +289,8 @@ pub fn WorldNavigBoard() type {
             // std.debug.print("hmm {d} chmm {d}\n", .{ self.idx_x, self.idx_z });
             const field_id = working_size.idx(self.idx_x, self.idx_z);
             const pos = grid_data.fields[field_id];
+            self.debug_pos = pos;
+            self.debug_pos[1] = 1;
             return math.asRlvec3(pos);
         }
 
@@ -302,9 +305,7 @@ pub fn WorldNavigBoard() type {
             self.board.deinit();
         }
 
-        pub fn repr(self: *Self) void {
-            self.board.board.repr();
-
+        fn navigDebug(self: *Self) void {
             const dirs: []const math.fvec3 = &.{
                 Self.Forward,
                 Self.Right,
@@ -312,7 +313,8 @@ pub fn WorldNavigBoard() type {
                 Self.Left,
             };
 
-            const origin = rl.Vector3.init(0, 1, 0);
+            const origin = math.asRlvec3(self.debug_pos);
+            const up = rl.Vector3.init(0, 1, 0);
             const mult: math.fvec3 = @splat(3);
             for (dirs) |dir| {
                 const rlvec = math.asRlvec3(dir * mult);
@@ -322,7 +324,7 @@ pub fn WorldNavigBoard() type {
             var osc_calc = Osc{ .phase = self.phase };
             const xz = osc_calc.sample2D();
             const rlxz = rl.Vector3.init(xz[0], 0, xz[1]).scale(-1);
-            const xz_origin = origin.add(origin.scale(0.5));
+            const xz_origin = origin.add(up.scale(0.5));
             rl.drawLine3D(xz_origin, xz_origin.add(rlxz), rl.Color.white);
 
             var max_id: u8 = 0;
@@ -335,9 +337,14 @@ pub fn WorldNavigBoard() type {
                     max_similarity = val;
                 }
             }
-            const sim_origin = origin.add(origin);
+            const sim_origin = origin.add(up.scale(0.25));
             const aligned = math.asRlvec3(dirs[max_id]);
-            rl.drawLine3D(sim_origin, sim_origin.add(aligned), rl.Color.black);
+            rl.drawLine3D(sim_origin, sim_origin.add(aligned), rl.Color.pink);
+        }
+
+        pub fn repr(self: *Self) void {
+            self.board.board.repr();
+            self.navigDebug();
         }
     };
 }
